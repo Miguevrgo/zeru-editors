@@ -1,215 +1,92 @@
-# tree-sitter-zeru
+# Zeru Editor Support
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+This repository contains syntax highlighting and editor support for the Zeru programming language across various editors.
 
-[Tree-sitter](https://tree-sitter.github.io/) grammar for the [Zeru](https://github.com/Miguevrgo/Zeru) programming language.
+## Supported Editors
 
-## Features
+- [Visual Studio Code](#visual-studio-code)
+- [Vim / Neovim](#vim--neovim)
+- [Emacs](#emacs)
 
-- ✅ Full syntax highlighting
-- ✅ Code folding
-- ✅ Indentation
-- ✅ Text objects (for vim/neovim)
-- ✅ Local variable tracking
+---
 
-### Supported Syntax
+## Visual Studio Code
 
-| Feature | Status |
-|---------|--------|
-| Functions & Generics | ✅ |
-| Structs & Methods | ✅ |
-| Enums & Match | ✅ |
-| Traits | ✅ |
-| Imports | ✅ |
-| Pointers (`*T`, `&x`) | ✅ |
-| Optional types (`T?`) | ✅ |
-| Result types (`T!`) | ✅ |
-| For-in loops | ✅ |
-| All operators | ✅ |
+### Installation
 
-## Installation
+1. Clone this repository or download the source code.
+2. Copy the `vscode/` folder to your VS Code extensions directory:
+   - **Linux/macOS:** `~/.vscode/extensions/zeru-syntax`
+   - **Windows:** `%USERPROFILE%\.vscode\extensions\zeru-syntax`
+3. Restart Visual Studio Code.
 
-### Neovim (Manual)
-
-#### 1. Clone and build
-
+Alternatively, if you have `vsce` installed, you can package it yourself:
 ```bash
-git clone https://github.com/Miguevrgo/tree-sitter-zeru
-cd tree-sitter-zeru
-
-# Compile the parser
-cc -o zeru.so -shared src/parser.c -I src -fPIC -O2
+cd vscode
+vsce package
+# Then install the resulting .vsix file in VS Code
 ```
 
-#### 2. Install parser
+---
+
+## Vim / Neovim
+
+### Manual Installation (Vim)
+
+Copy the contents of the `vim/` directory to your `.vim` configuration folder:
 
 ```bash
-mkdir -p ~/.local/share/nvim/site/parser
-cp zeru.so ~/.local/share/nvim/site/parser/
+mkdir -p ~/.vim/syntax ~/.vim/ftdetect
+cp vim/syntax/zeru.vim ~/.vim/syntax/
+cp vim/ftdetect/zeru.vim ~/.vim/ftdetect/
 ```
 
-#### 3. Install queries
+### Manual Installation (Neovim)
+
+Copy the contents of the `vim/` directory to your Neovim configuration folder:
 
 ```bash
-mkdir -p ~/.config/nvim/queries/zeru
-cp queries/*.scm ~/.config/nvim/queries/zeru/
+mkdir -p ~/.config/nvim/syntax ~/.config/nvim/ftdetect
+cp vim/syntax/zeru.vim ~/.config/nvim/syntax/
+cp vim/ftdetect/zeru.vim ~/.config/nvim/ftdetect/
 ```
 
-#### 4. Configure filetype
+### Using a Plugin Manager (Vim/Neovim)
 
-**LazyVim** (`~/.config/nvim/lua/plugins/zeru.lua`):
+If you use a plugin manager like [vim-plug](https://github.com/junegunn/vim-plug), add the following to your configuration:
+
+```vim
+Plug 'zeru-lang/zeru-editors', { 'rtp': 'vim' }
+```
+
+For Neovim with `lazy.nvim`:
 
 ```lua
-return {
-  {
-    "nvim-treesitter/nvim-treesitter",
-    init = function()
-      vim.filetype.add({ extension = { zr = "zeru" } })
-    end,
-  },
+{
+  "zeru-lang/zeru-editors",
+  config = function(plugin)
+    vim.opt.rtp:append(plugin.dir .. "/vim")
+  end
 }
 ```
 
-**Vanilla Neovim** (`~/.config/nvim/init.lua`):
-
-```lua
-vim.filetype.add({ extension = { zr = "zeru" } })
-```
-
-#### 5. Restart Neovim
-
-Open a `.zr` file and enjoy syntax highlighting! 🎉
-
 ---
 
-### Helix
+## Emacs
 
-Add to `~/.config/helix/languages.toml`:
+### Installation
 
-```toml
-[[language]]
-name = "zeru"
-scope = "source.zeru"
-injection-regex = "zeru"
-file-types = ["zr"]
-roots = []
-comment-token = "//"
-indent = { tab-width = 4, unit = "    " }
-
-[[grammar]]
-name = "zeru"
-source = { git = "https://github.com/Miguevrgo/tree-sitter-zeru", rev = "main" }
-```
-
-Then run:
-
-```bash
-hx --grammar fetch
-hx --grammar build
-mkdir -p ~/.config/helix/runtime/queries/zeru
-cp queries/*.scm ~/.config/helix/runtime/queries/zeru/
-```
-
----
-
-### Emacs (tree-sitter)
-
-```elisp
-(add-to-list 'treesit-language-source-alist
-             '(zeru "https://github.com/Miguevrgo/tree-sitter-zeru"))
-(treesit-install-language-grammar 'zeru)
-```
-
----
-
-## Development
-
-### Prerequisites
-
-- Node.js 18+
-- tree-sitter-cli (`npm install -g tree-sitter-cli`)
-- C compiler (gcc/clang)
-
-### Building
-
-```bash
-npm install
-npm run generate
-npm test
-```
-
-### Project Structure
-
-```
-tree-sitter-zeru/
-├── grammar.js          # Grammar definition
-├── src/
-│   ├── parser.c        # Generated parser
-│   └── tree_sitter/    # Tree-sitter headers
-├── queries/
-│   ├── highlights.scm  # Syntax highlighting
-│   ├── locals.scm      # Scope tracking
-│   ├── indents.scm     # Indentation rules
-│   ├── injections.scm  # Language injections
-│   └── textobjects.scm # Vim text objects
-├── test/corpus/        # Test cases
-└── package.json
-```
-
-## Troubleshooting
-
-### Neovim: Parser not working
-
-1. Verify parser exists:
-   ```bash
-   ls ~/.local/share/nvim/site/parser/zeru.so
+1. Add the `emacs/` directory to your Emacs `load-path`:
+   ```elisp
+   (add-to-list 'load-path "/path/to/zeru-editors/emacs")
+   ```
+2. Load and require `zeru-mode`:
+   ```elisp
+   (require 'zeru-mode)
    ```
 
-2. Verify queries exist:
-   ```bash
-   ls ~/.config/nvim/queries/zeru/
-   ```
+### Features
 
-3. Check filetype (inside Neovim with a `.zr` file open):
-   ```vim
-   :set ft?
-   ```
-   Should show `filetype=zeru`
-
-4. Test parser:
-   ```vim
-   :lua print(pcall(vim.treesitter.get_parser, 0, "zeru"))
-   ```
-   Should print `true`
-
-5. Inspect syntax tree:
-   ```vim
-   :InspectTree
-   ```
-
-### Rebuild after changes
-
-```bash
-npm run generate
-cc -o zeru.so -shared src/parser.c -I src -fPIC -O2
-cp zeru.so ~/.local/share/nvim/site/parser/
-```
-
-## Contributing
-
-1. Fork the repository
-2. Edit `grammar.js`
-3. Run `npm run generate`
-4. Add tests in `test/corpus/`
-5. Run `npm test`
-6. Submit a PR
-
-## License
-
-MIT License - see [LICENSE](LICENSE)
-
-## Related
-
-- [Zeru Language](https://github.com/Miguevrgo/Zeru) - The Zeru compiler
-- [Tree-sitter](https://tree-sitter.github.io/) - Parsing library
-- [nvim-treesitter](https://github.com/nvim-treesitter/nvim-treesitter) - Neovim integration
+- Syntax highlighting for Zeru source files (`.zr`).
+- Automatic indentation.
+- Commenting support.

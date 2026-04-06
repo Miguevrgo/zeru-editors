@@ -1,0 +1,35 @@
+{
+    "name": "zeru-syntax",
+    "displayName": "Zeru Syntax Highlighting",
+    "description": "Syntax highlighting for the Zeru programming language",
+    "version": "0.1.0",
+    "publisher": "miguevr",
+    "engines": {
+        "vscode": "^1.60.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "zeru",
+                "aliases": [
+                    "Zeru",
+                    "zeru"
+                ],
+                "extensions": [
+                    ".zr"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "zeru",
+                "scopeName": "source.zeru",
+                "path": "./syntaxes/zeru.tmLanguage.json"
+            }
+        ]
+    }
+}
