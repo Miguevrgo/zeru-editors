@@ -56,14 +56,14 @@ cp vim/ftdetect/zeru.vim ~/.config/nvim/ftdetect/
 If you use a plugin manager like [vim-plug](https://github.com/junegunn/vim-plug), add the following to your configuration:
 
 ```vim
-Plug 'zeru-lang/zeru-editors', { 'rtp': 'vim' }
+Plug 'Miguevrgo/zeru-editors', { 'rtp': 'vim' }
 ```
 
 For Neovim with `lazy.nvim`:
 
 ```lua
 {
-  "zeru-lang/zeru-editors",
+  "Miguevrgo/zeru-editors",
   config = function(plugin)
     vim.opt.rtp:append(plugin.dir .. "/vim")
   end
