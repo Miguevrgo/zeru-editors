@@ -64,9 +64,16 @@ For Neovim with `lazy.nvim`:
 ```lua
 {
   "Miguevrgo/zeru-editors",
+  lazy = false,
   config = function(plugin)
     vim.opt.rtp:append(plugin.dir .. "/vim")
-  end
+  end,
+  init = function()
+    vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {
+      pattern = "*.zr",
+      command = "set filetype=zeru",
+    })
+  end,
 }
 ```
 
