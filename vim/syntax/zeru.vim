@@ -8,6 +8,13 @@ syntax keyword zeruBoolean true false None
 syntax keyword zeruType i8 i16 i32 i64 u8 u16 u32 u64 usize f32 f64 bool str Array Vec
 syntax keyword zeruSelf self
 
+" Operators
+syntax match zeruOperator "[-+*/%&|^<>!=]=*"
+syntax match zeruOperator "&&"
+syntax match zeruOperator "||"
+syntax match zeruOperator "=>"
+syntax match zeruOperator "::"
+
 " Comments
 syntax region zeruCommentLine start="//" end="$" contains=@Spell,zeruTodo
 syntax region zeruCommentBlock start="/\*" end="\*/" contains=@Spell,zeruTodo
@@ -24,13 +31,6 @@ syntax match zeruNumber "\<0x[0-9a-fA-F]\+\>"
 syntax match zeruNumber "\<0b[01]\+\>"
 syntax match zeruNumber "\<0o[0-7]\+\>"
 syntax match zeruFloat "\<\d\+\.\d*\>"
-
-" Operators
-syntax match zeruOperator "[-+*/%&|^<>!=]=*"
-syntax match zeruOperator "&&"
-syntax match zeruOperator "||"
-syntax match zeruOperator "=>"
-syntax match zeruOperator "::"
 
 highlight default link zeruKeyword Keyword
 highlight default link zeruBoolean Boolean
