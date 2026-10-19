@@ -1,6 +1,6 @@
-//! The program: the open files, every module they import and the prelude,
-//! each parsed on its own, and what each name in them refers to. Types are
-//! only the ones written in the source.
+//! The program: the open files, every module they import, the prelude and
+//! the compiler's built-ins, each parsed on its own, and what each name in
+//! them refers to. Types are only the ones written in the source.
 
 use std::path::{Path, PathBuf};
 
@@ -27,55 +27,29 @@ pub enum Def {
     Module(usize),
 }
 
-/// What a value is known to be: a type written in a file, a struct or enum
-/// named as such, or `Vec` named as a type.
+/// What a value is known to be: a type written in a file, or a struct or
+/// enum named as such.
 #[derive(Debug)]
 pub enum Ty {
     Value(usize, String),
     Static(usize, usize),
-    Vec,
 }
 
-/// The built-in types' methods and their return types, `T` standing for the
-/// element or the value inside, and `""` for none.
-const VEC_METHODS: [(&str, &str); 12] = [
-    ("len", "usize"),
-    ("capacity", "usize"),
-    ("is_empty", "bool"),
-    ("push", ""),
-    ("pop", "T?"),
-    ("insert", ""),
-    ("remove", "T"),
-    ("get", "(&T)?"),
-    ("clear", ""),
-    ("reserve", ""),
-    ("shrink_to_fit", ""),
-    ("copy", "Vec<T>"),
-];
-const OPTIONAL_METHODS: [(&str, &str); 3] =
-    [("is_some", "bool"), ("is_none", "bool"), ("unwrap", "T")];
-const RESULT_METHODS: [(&str, &str); 4] = [
-    ("is_ok", "bool"),
-    ("is_err", "bool"),
-    ("unwrap", "T"),
-    ("unwrap_err", "i32"),
-];
-const STR_METHODS: [(&str, &str); 1] = [("len", "usize")];
+/// The file of the program that declares what the compiler builds in: `Vec`,
+/// `str`, `T?` and `T!` as `Str`, `Optional<T>` and `Result<T>`, and the
+/// print functions.
+pub const BUILTINS: usize = 0;
 
-/// The built-in methods of a written type, and what `T` is in them.
-pub fn builtin_methods(ty: &str) -> Option<(&'static [(&'static str, &'static str)], &str)> {
+/// The built-in struct a written type is, and its type arguments.
+fn builtin(ty: &str) -> Option<(&'static str, Vec<&str>)> {
     let ty = strip(ty);
     if let Some(inner) = ty.strip_suffix('?') {
-        return Some((&OPTIONAL_METHODS, inner));
+        return Some(("Optional", vec![inner]));
     }
     if let Some(inner) = ty.strip_suffix('!') {
-        return Some((&RESULT_METHODS, inner));
+        return Some(("Result", vec![inner]));
     }
-    match generic(ty) {
-        ("Vec", args) => Some((&VEC_METHODS, args.first().copied().unwrap_or_default())),
-        ("str", _) => Some((&STR_METHODS, "")),
-        _ => None,
-    }
+    (ty == "str").then(|| ("Str", Vec::new()))
 }
 
 /// `ty` with each type parameter in `params` replaced by its argument.
@@ -106,8 +80,16 @@ impl Program {
         std: Option<&Path>,
         read: impl Fn(&Path) -> Option<String>,
     ) -> Self {
+        let text = include_str!("builtins.zr");
+        let builtins = File {
+            path: PathBuf::new(),
+            text: text.to_string(),
+            module: parse(text),
+            std: true,
+            imports: Vec::new(),
+        };
         let mut program = Program {
-            files: Vec::new(),
+            files: vec![builtins],
             prelude: None,
         };
         let mut queue = Vec::new();
@@ -243,11 +225,12 @@ impl Program {
                 return Some(Def::Item(target, at));
             }
         }
-        if let Some(prelude) = self.prelude
-            && let Some(at) = self.top_item(prelude, name)
-            && self.files[prelude].module.items[at].is_pub
-        {
-            return Some(Def::Item(prelude, at));
+        for shared in self.prelude.into_iter().chain([BUILTINS]) {
+            if let Some(at) = self.top_item(shared, name)
+                && self.files[shared].module.items[at].is_pub
+            {
+                return Some(Def::Item(shared, at));
+            }
         }
         let module =
             targets().find(|(import, _)| import.path.last().is_some_and(|last| last == name));
@@ -257,6 +240,9 @@ impl Program {
     /// The struct or enum a written type names, seen through references,
     /// pointers and parentheses.
     fn named_type(&self, file: usize, ty: &str) -> Option<(usize, usize)> {
+        if let Some((name, _)) = builtin(ty) {
+            return Some((BUILTINS, self.top_item(BUILTINS, name)?));
+        }
         let (base, _) = generic(strip(ty));
         let def = match base.split_once("::") {
             Some((module, name)) => match self.global(file, module)? {
@@ -289,7 +275,6 @@ impl Program {
                     self.child(f, owner, name)
                 }
                 Ty::Static(f, owner) => self.child(f, owner, name),
-                Ty::Vec => None,
             },
             UseKind::Path { qualifier, .. } => {
                 match self.resolve_in(file, *qualifier, depth + 1)? {
@@ -345,24 +330,7 @@ impl Program {
                     _ => return None,
                 }
             }
-            Some(Def::Module(_)) => return None,
-            None => match receiver {
-                Some(Ty::Value(f, receiver)) if called => {
-                    let name = self.text(file, self.files[file].module.uses[at].span);
-                    let (methods, inner) = builtin_methods(&receiver)?;
-                    let (_, returned) = methods
-                        .iter()
-                        .find(|(method, returned)| *method == name && !returned.is_empty())?;
-                    ops = &ops[1..];
-                    Ty::Value(f, substitute(returned, &["T".into()], &[inner]))
-                }
-                Some(Ty::Vec) if called => {
-                    ops = &ops[1..];
-                    Ty::Value(file, "Vec".into())
-                }
-                _ if self.text(file, self.files[file].module.uses[at].span) == "Vec" => Ty::Vec,
-                _ => return None,
-            },
+            Some(Def::Module(_)) | None => return None,
         };
         for op in ops {
             ty = match (op, ty) {
@@ -378,7 +346,7 @@ impl Program {
 
     /// The type a local is given by the source: written, initialized from,
     /// walked by a `for`, or taken out of a payload by a pattern.
-    fn local_type(&self, file: usize, local: usize, depth: usize) -> Option<Ty> {
+    pub fn local_type(&self, file: usize, local: usize, depth: usize) -> Option<Ty> {
         match self.files[file].module.locals[local].hint.as_ref()? {
             Hint::Written(ty) => Some(Ty::Value(file, ty.clone())),
             Hint::Value(chain) => self.type_of_in(file, chain, depth),
@@ -418,7 +386,8 @@ impl Program {
             .owner
             .map_or(&[][..], |owner| &items[owner].type_params);
         if let Some(Ty::Value(f, receiver)) = receiver {
-            let substituted = substitute(ty, params, &generic(strip(&receiver)).1);
+            let args = builtin(&receiver).map_or_else(|| generic(strip(&receiver)).1, |b| b.1);
+            let substituted = substitute(ty, params, &args);
             if substituted != ty {
                 return Ty::Value(f, substituted);
             }
@@ -450,7 +419,8 @@ impl Program {
     }
 
     /// What the name at `offset` means, or for a member of a value whose
-    /// type is unknown, every struct field and method so named.
+    /// type is unknown, every field and method so named of a struct the
+    /// program declares.
     pub fn meanings(&self, file: usize, offset: usize) -> Option<(Span, Vec<Def>)> {
         if let Some((span, def)) = self.at(file, offset) {
             return Some((span, vec![def]));
@@ -460,7 +430,7 @@ impl Program {
         })?;
         let name = self.text(file, used.span);
         let mut found = Vec::new();
-        for (f, source) in self.files.iter().enumerate() {
+        for (f, source) in self.files.iter().enumerate().skip(BUILTINS + 1) {
             let items = &source.module.items;
             for (at, item) in items.iter().enumerate() {
                 let member = matches!(item.kind, ItemKind::Field | ItemKind::Method);
@@ -498,6 +468,26 @@ impl Program {
             }
         }
         found
+    }
+
+    /// `def` as hover and completion document it: its owner and declaration
+    /// in a code block, then its doc comment.
+    pub fn markdown(&self, def: Def) -> String {
+        let mut code = self.describe(def);
+        let mut docs = "";
+        if let Def::Item(f, at) = def {
+            let items = &self.files[f].module.items;
+            if let (Some(owner), ItemKind::Field | ItemKind::Method) =
+                (items[at].owner, items[at].kind)
+            {
+                code = format!("{}\n{code}", items[owner].name);
+            }
+            docs = &items[at].docs;
+        }
+        match docs.is_empty() {
+            true => format!("```zeru\n{code}\n```"),
+            false => format!("```zeru\n{code}\n```\n\n---\n\n{docs}"),
+        }
     }
 
     /// The declaration `def` names, as hover shows it.
@@ -664,10 +654,11 @@ fn main() {
         let root = PathBuf::from("/p/main.zr");
         let read = |_: &Path| Some(TYPED.to_string());
         let program = Program::load(std::slice::from_ref(&root), None, read);
-        let locals = &program.files[0].module.locals;
+        let main = program.find(&root).unwrap();
+        let locals = &program.files[main].module.locals;
         let shown = |name: &str| {
             let at = locals.iter().position(|l| l.name == name).unwrap();
-            program.describe(Def::Local(0, at))
+            program.describe(Def::Local(main, at))
         };
         for (name, expected) in [
             ("a", "var a: Point"),
@@ -687,11 +678,15 @@ fn main() {
             assert_eq!(shown(name), expected);
         }
         let at = |needle: &str| TYPED.rfind(needle).unwrap() + 2;
-        let meanings = |needle| program.meanings(0, at(needle)).map(|(_, defs)| defs.len());
+        let meanings = |needle| {
+            program
+                .meanings(main, at(needle))
+                .map(|(_, defs)| defs.len())
+        };
         assert_eq!(meanings("u.len"), Some(2));
         assert_eq!(meanings("u.x"), Some(1));
         let labels = |needle| {
-            let found = crate::complete::completion(&program, 0, at(needle));
+            let found = crate::complete::completion(&program, main, at(needle), true);
             found.into_iter().map(|item| item.label).collect::<Vec<_>>()
         };
         assert_eq!(labels("a.x"), ["x", "len"]);

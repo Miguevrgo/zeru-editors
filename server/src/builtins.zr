@@ -1,0 +1,90 @@
+// A growable array that owns its elements: assigning or passing it moves it.
+pub struct Vec<T> {
+    // An empty Vec; it allocates on the first push.
+    fn new() Vec<T> {}
+
+    // An empty Vec with room for `capacity` elements.
+    fn with_capacity(capacity: usize) Vec<T> {}
+
+    // The number of elements.
+    fn len(self) usize {}
+
+    // How many elements fit before the buffer grows.
+    fn capacity(self) usize {}
+
+    // Whether it has no elements.
+    fn is_empty(self) bool {}
+
+    // Appends `value` at the end, growing the buffer when it is full.
+    fn push(var self, value: T) {}
+
+    // Removes the last element and returns it, or None when it is empty.
+    fn pop(var self) T? {}
+
+    // Inserts `value` at `index`, shifting the rest up; panics past the end.
+    fn insert(var self, index: usize, value: T) {}
+
+    // Removes the element at `index` and returns it, shifting the rest down; panics out of bounds.
+    fn remove(var self, index: usize) T {}
+
+    // A reference to the element at `index`, or None out of bounds; `.copy()` gives a `T?`.
+    fn get(self, index: usize) (&T)? {}
+
+    // Removes every element, keeping the capacity.
+    fn clear(var self) {}
+
+    // Makes room for `additional` more elements.
+    fn reserve(var self, additional: usize) {}
+
+    // Shrinks the capacity down to the length.
+    fn shrink_to_fit(var self) {}
+
+    // A deep copy, so the original stays usable; O(n).
+    fn copy(self) Vec<T> {}
+}
+
+// A string: a slice of ASCII bytes.
+struct Str {
+    // The length in bytes.
+    fn len(self) usize {}
+}
+
+// `T?`: a value, or None.
+struct Optional<T> {
+    // Whether it holds a value.
+    fn is_some(self) bool {}
+
+    // Whether it is None.
+    fn is_none(self) bool {}
+
+    // The value inside; panics on None.
+    fn unwrap(self) T {}
+}
+
+// `T!`: a value, or an i32 error code.
+struct Result<T> {
+    // Whether it holds a value.
+    fn is_ok(self) bool {}
+
+    // Whether it holds an error code.
+    fn is_err(self) bool {}
+
+    // The value inside; panics on an error.
+    fn unwrap(self) T {}
+
+    // The error code; panics on a value.
+    fn unwrap_err(self) i32 {}
+}
+
+// Writes `format` to stdout, buffered, each `{}` replaced by the next value
+// (a number, a bool or a str) and `{{}}` by braces.
+pub fn print(format: str) {}
+
+// Like print, then a newline, and flushes stdout.
+pub fn println(format: str) {}
+
+// Like print, to stderr.
+pub fn eprint(format: str) {}
+
+// Like println, to stderr.
+pub fn eprintln(format: str) {}

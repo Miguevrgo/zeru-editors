@@ -13,8 +13,6 @@ pub const PRIMITIVES: [&str; 14] = [
     "void",
 ];
 
-pub const PRINTS: [&str; 4] = ["print", "println", "eprint", "eprintln"];
-
 /// The operators, longest first so the first match is the longest one.
 const OPERATORS: [&str; 50] = [
     ">>=", "<<=", "+%=", "-%=", "*%=", "==", "!=", "<=", ">=", "&&", "||", "<<", ">>", "+=", "-=",

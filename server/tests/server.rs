@@ -36,7 +36,7 @@ fn main() {
 }
 ";
 
-const UTIL: &str = "pub fn twice(n: i32) i32 {\n    return n * 2;\n}\n";
+const UTIL: &str = "// Twice `n`.\npub fn twice(n: i32) i32 {\n    return n * 2;\n}\n";
 
 struct Server {
     child: Child,
@@ -190,7 +190,7 @@ fn shown(hover: &Value) -> &str {
 #[test]
 fn answers_and_checks_without_blocking() {
     let mut server = Server::start();
-    let initialized = server.request("initialize", json!({ "capabilities": {} }));
+    let initialized = server.request("initialize", json!({ "capabilities": { "textDocument": { "completion": { "completionItem": { "snippetSupport": true } } } } }));
     let legend =
         initialized["capabilities"]["semanticTokensProvider"]["legend"]["tokenTypes"].clone();
     server.notify("initialized", json!({}));
@@ -201,8 +201,11 @@ fn answers_and_checks_without_blocking() {
     assert_eq!(server.diagnostics("main.zr"), Vec::<Value>::new());
 
     assert!(shown(&server.at("textDocument/hover", 20, 23)).contains("var p: Point"));
-    assert!(shown(&server.at("textDocument/hover", 20, 26)).contains("fn sum(self) i32"));
-    assert!(shown(&server.at("textDocument/hover", 20, 17)).contains("pub fn twice(n: i32) i32"));
+    assert!(shown(&server.at("textDocument/hover", 20, 26)).contains("Point\nfn sum(self) i32"));
+    assert_eq!(
+        shown(&server.at("textDocument/hover", 20, 17)),
+        "```zeru\npub fn twice(n: i32) i32\n```\n\n---\n\nTwice `n`."
+    );
     assert!(shown(&server.at("textDocument/hover", 19, 8)).contains("var v: Vec<i32>"));
 
     let definition = server.at("textDocument/definition", 20, 26);
@@ -216,6 +219,7 @@ fn answers_and_checks_without_blocking() {
 
     let members = server.at("textDocument/completion", 20, 25);
     assert_eq!(labels(&members), ["x", "y", "sum"]);
+    assert_eq!(members[2]["insertText"], "sum()$0");
     let functions = server.at("textDocument/completion", 18, 18);
     assert_eq!(labels(&functions), ["origin"]);
     assert!(labels(&server.at("textDocument/completion", 20, 6)).contains(&"push"));
@@ -228,6 +232,10 @@ fn answers_and_checks_without_blocking() {
 
     let help = server.at("textDocument/signatureHelp", 20, 23);
     assert_eq!(help["signatures"][0]["label"], "pub fn twice(n: i32) i32");
+    assert_eq!(
+        help["signatures"][0]["documentation"]["value"],
+        "Twice `n`."
+    );
     assert_eq!(
         server
             .at("textDocument/references", 3, 4)

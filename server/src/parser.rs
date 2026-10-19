@@ -19,7 +19,7 @@ pub enum ItemKind {
 
 /// A declaration: an item of the file, or a field, method or variant of one.
 /// `params` are a function's parameters as written, or a variant's payload
-/// types.
+/// types, and `docs` the `//` lines right above it.
 #[derive(Debug)]
 pub struct Item {
     pub kind: ItemKind,
@@ -33,6 +33,7 @@ pub struct Item {
     pub params: Vec<String>,
     pub type_params: Vec<String>,
     pub has_self: bool,
+    pub docs: String,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -349,6 +350,22 @@ impl Parser<'_> {
         collapse(&self.text[start..self.prev_end().max(start)])
     }
 
+    /// The `//` lines right above the line `start` is on, up to a blank
+    /// line or a rule of dashes or other symbols.
+    fn docs(&self, start: usize) -> String {
+        let above = &self.text[..self.text[..start].rfind('\n').unwrap_or_default()];
+        let mut lines: Vec<&str> = above
+            .lines()
+            .rev()
+            .map_while(|line| line.trim().strip_prefix("//"))
+            .map(|line| line.trim_start_matches('/'))
+            .take_while(|line| line.trim().is_empty() || line.contains(char::is_alphanumeric))
+            .map(|line| line.strip_prefix(' ').unwrap_or(line))
+            .collect();
+        lines.reverse();
+        lines.join("\n")
+    }
+
     fn name(&self, span: Span) -> String {
         self.text[span.start..span.end].to_string()
     }
@@ -426,6 +443,7 @@ impl Parser<'_> {
             params: Vec::new(),
             type_params: Vec::new(),
             has_self: false,
+            docs: self.docs(start),
         });
         self.module.items.len() - 1
     }

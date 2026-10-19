@@ -40,7 +40,7 @@ use serde_json::{Value, json};
 
 use lexer::Span;
 use parser::ItemKind;
-use program::Program;
+use program::{BUILTINS, Program};
 
 /// What the main loop answers: a message from the editor, which closing
 /// its end turns into `exit`, or a finished check.
@@ -62,6 +62,7 @@ struct Server {
     taken: HashSet<PathBuf>,
     running: HashMap<PathBuf, check::Running>,
     generation: u64,
+    snippets: bool,
 }
 
 fn main() -> io::Result<()> {
@@ -69,6 +70,8 @@ fn main() -> io::Result<()> {
     let (id, params) = connection.initialize_start().map_err(io::Error::other)?;
     let zeru = check::find_zeru(params["initializationOptions"]["zeruPath"].as_str());
     let std = check::find_std(zeru.as_deref());
+    let completion = &params["capabilities"]["textDocument"]["completion"];
+    let snippets = completion["completionItem"]["snippetSupport"] == true;
     let initialized =
         json!({ "capabilities": capabilities(), "serverInfo": { "name": "zeru-lsp" } });
     connection
@@ -98,6 +101,7 @@ fn main() -> io::Result<()> {
         taken: HashSet::new(),
         running: HashMap::new(),
         generation: 0,
+        snippets,
     };
     for event in received {
         match event {
@@ -201,9 +205,8 @@ impl Server {
             }
             Completion::METHOD => answer::<Completion>(request, |p| {
                 let (program, file, offset) = self.locate(&p.text_document_position)?;
-                Some(CompletionResponse::Array(complete::completion(
-                    &program, file, offset,
-                )))
+                let found = complete::completion(&program, file, offset, self.snippets);
+                Some(CompletionResponse::Array(found))
             }),
             SignatureHelpRequest::METHOD => answer::<SignatureHelpRequest>(request, |p| {
                 let (program, file, offset) = self.locate(&p.text_document_position_params)?;
@@ -256,21 +259,11 @@ impl Server {
         let (program, file, offset) = self.locate(&at)?;
         let (span, defs) = program.meanings(file, offset)?;
         let range = Lines::new(&program.files[file].text).range(span);
-        let shown: Vec<String> = defs
-            .iter()
-            .map(|&def| match (defs.len(), def) {
-                (2.., program::Def::Item(f, at)) => {
-                    let items = &program.files[f].module.items;
-                    let owner = items[at].owner.map_or("", |owner| &items[owner].name);
-                    format!("{}  // {owner}", program.describe(def))
-                }
-                _ => program.describe(def),
-            })
-            .collect();
+        let shown: Vec<String> = defs.iter().map(|&def| program.markdown(def)).collect();
         Some(Hover {
             contents: HoverContents::Markup(MarkupContent {
                 kind: MarkupKind::Markdown,
-                value: format!("```zeru\n{}\n```", shown.join("\n")),
+                value: shown.join("\n\n---\n\n"),
             }),
             range: Some(range),
         })
@@ -281,10 +274,9 @@ impl Server {
         let (_, defs) = program.meanings(file, offset)?;
         let mut found: Vec<Location> = defs
             .into_iter()
-            .map(|def| {
-                let (file, span) = program.declared(def);
-                location(&program, file, span)
-            })
+            .map(|def| program.declared(def))
+            .filter(|&(file, _)| file != BUILTINS)
+            .map(|(file, span)| location(&program, file, span))
             .collect();
         Some(match found.len() {
             1 => GotoDefinitionResponse::Scalar(found.remove(0)),
@@ -301,7 +293,7 @@ impl Server {
         let (_, def) = program.at(file, offset)?;
         let declared = program.declared(def);
         let found = program.occurrences(def).into_iter();
-        let found = found.filter(|&at| with_declaration || at != declared);
+        let found = found.filter(|&at| (with_declaration || at != declared) && at.0 != BUILTINS);
         Some(
             found
                 .map(|(file, span)| location(&program, file, span))

@@ -6,9 +6,9 @@ use std::collections::HashMap;
 use lsp_types::{SemanticToken, SemanticTokenType as T};
 
 use crate::Lines;
-use crate::lexer::{Kind, PRIMITIVES, PRINTS};
+use crate::lexer::{Kind, PRIMITIVES};
 use crate::parser::{ItemKind, LocalKind, UseKind};
-use crate::program::{Def, Program};
+use crate::program::{BUILTINS, Def, Program};
 
 pub const LEGEND: [T; 18] = [
     T::NAMESPACE,
@@ -41,6 +41,7 @@ fn class(program: &Program, def: Def) -> T {
             LocalKind::Var | LocalKind::Binding => T::VARIABLE,
         },
         Def::Item(f, at) => match program.files[f].module.items[at].kind {
+            ItemKind::Fn if f == BUILTINS => T::MACRO,
             ItemKind::Fn => T::FUNCTION,
             ItemKind::Method => T::METHOD,
             ItemKind::Struct => T::STRUCT,
@@ -72,8 +73,7 @@ pub fn semantic_tokens(program: &Program, file: usize) -> Vec<SemanticToken> {
             (None, UseKind::Member { .. }) if called(used.span.end) => T::METHOD,
             (None, UseKind::Member { .. } | UseKind::Field { .. }) => T::PROPERTY,
             (None, UseKind::Name | UseKind::Type) => match &text[used.span.start..used.span.end] {
-                name if PRIMITIVES.contains(&name) || name == "Vec" || name == "Array" => T::TYPE,
-                name if PRINTS.contains(&name) => T::MACRO,
+                name if PRIMITIVES.contains(&name) || name == "Array" => T::TYPE,
                 "Some" | "Ok" | "Err" => T::ENUM_MEMBER,
                 _ if text[used.span.end..].starts_with("::") => T::NAMESPACE,
                 _ if called(used.span.end) => T::FUNCTION,
