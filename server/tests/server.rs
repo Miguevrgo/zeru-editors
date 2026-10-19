@@ -179,7 +179,7 @@ impl Drop for Server {
 }
 
 fn labels(found: &Value) -> Vec<&str> {
-    let found = found.as_array().unwrap().iter();
+    let found = found["items"].as_array().unwrap().iter();
     found.map(|item| item["label"].as_str().unwrap()).collect()
 }
 
@@ -219,7 +219,10 @@ fn answers_and_checks_without_blocking() {
 
     let members = server.at("textDocument/completion", 20, 25);
     assert_eq!(labels(&members), ["x", "y", "sum"]);
-    assert_eq!(members[2]["insertText"], "sum()$0");
+    assert_eq!(members["items"][2]["insertText"], "sum()$0");
+    let half_path = server.at("textDocument/completion", 20, 16);
+    assert_eq!(half_path, json!({ "isIncomplete": true, "items": [] }));
+    assert!(labels(&server.at("textDocument/completion", 20, 17)).contains(&"twice"));
     let functions = server.at("textDocument/completion", 18, 18);
     assert_eq!(labels(&functions), ["origin"]);
     assert!(labels(&server.at("textDocument/completion", 20, 6)).contains(&"push"));

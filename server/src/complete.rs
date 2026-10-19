@@ -24,6 +24,9 @@ pub fn completion(
         .trim_end_matches(|c: char| c.is_ascii_alphanumeric() || c == '_')
         .len();
     let head = &text[..start];
+    if head.ends_with(':') && !head.ends_with("::") {
+        return Vec::new();
+    }
     let uses = &program.files[file].module.uses;
     let mut found = if head.ends_with("::") {
         let qualifier = uses.iter().find_map(|used| match used.kind {

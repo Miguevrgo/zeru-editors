@@ -27,14 +27,14 @@ use lsp_types::request::{
     Request as _, SemanticTokensFullRequest, SignatureHelpRequest,
 };
 use lsp_types::{
-    CompletionOptions, CompletionResponse, Diagnostic, DiagnosticRelatedInformation,
-    DiagnosticSeverity, DocumentSymbol, DocumentSymbolResponse, GotoDefinitionResponse, Hover,
-    HoverContents, HoverProviderCapability, Location, MarkupContent, MarkupKind, OneOf, Position,
-    PublishDiagnosticsParams, Range, SemanticTokens, SemanticTokensFullOptions,
-    SemanticTokensLegend, SemanticTokensOptions, SemanticTokensResult, ServerCapabilities,
-    SignatureHelpOptions, SymbolKind, TextDocumentPositionParams, TextDocumentSyncCapability,
-    TextDocumentSyncKind, TextDocumentSyncOptions, TextDocumentSyncSaveOptions, TextEdit, Uri,
-    WorkspaceEdit,
+    CompletionList, CompletionOptions, CompletionResponse, Diagnostic,
+    DiagnosticRelatedInformation, DiagnosticSeverity, DocumentSymbol, DocumentSymbolResponse,
+    GotoDefinitionResponse, Hover, HoverContents, HoverProviderCapability, Location, MarkupContent,
+    MarkupKind, OneOf, Position, PublishDiagnosticsParams, Range, SemanticTokens,
+    SemanticTokensFullOptions, SemanticTokensLegend, SemanticTokensOptions, SemanticTokensResult,
+    ServerCapabilities, SignatureHelpOptions, SymbolKind, TextDocumentPositionParams,
+    TextDocumentSyncCapability, TextDocumentSyncKind, TextDocumentSyncOptions,
+    TextDocumentSyncSaveOptions, TextEdit, Uri, WorkspaceEdit,
 };
 use serde_json::{Value, json};
 
@@ -205,8 +205,11 @@ impl Server {
             }
             Completion::METHOD => answer::<Completion>(request, |p| {
                 let (program, file, offset) = self.locate(&p.text_document_position)?;
-                let found = complete::completion(&program, file, offset, self.snippets);
-                Some(CompletionResponse::Array(found))
+                let items = complete::completion(&program, file, offset, self.snippets);
+                Some(CompletionResponse::List(CompletionList {
+                    is_incomplete: items.is_empty(),
+                    items,
+                }))
             }),
             SignatureHelpRequest::METHOD => answer::<SignatureHelpRequest>(request, |p| {
                 let (program, file, offset) = self.locate(&p.text_document_position_params)?;
