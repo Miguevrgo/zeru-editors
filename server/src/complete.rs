@@ -10,22 +10,7 @@ use lsp_types::{
 
 use crate::lexer::{KEYWORDS, Kind, PRIMITIVES, PRINTS, lex};
 use crate::parser::{Item, ItemKind, LocalKind, UseKind};
-use crate::program::{Def, Program, Ty, generic, strip};
-
-const VEC_METHODS: [&str; 12] = [
-    "len",
-    "capacity",
-    "is_empty",
-    "push",
-    "pop",
-    "insert",
-    "remove",
-    "get",
-    "clear",
-    "reserve",
-    "shrink_to_fit",
-    "copy",
-];
+use crate::program::{Def, Program, Ty, builtin_methods};
 
 pub fn completion(program: &Program, file: usize, offset: usize) -> Vec<CompletionItem> {
     let text = &program.files[file].text;
@@ -107,27 +92,20 @@ fn members(program: &Program, ty: Ty) -> Vec<CompletionItem> {
         Ty::Static(f, owner) => items_of(program, f, Some(owner), |m| {
             m.kind == ItemKind::Method && !m.has_self
         }),
-        Ty::Value(f, ty) => {
-            let ty = strip(&ty);
-            if ty.ends_with('?') {
-                return named(&["is_some", "is_none", "unwrap"], method);
-            }
-            if ty.ends_with('!') {
-                return named(&["is_ok", "is_err", "unwrap", "unwrap_err"], method);
-            }
-            match generic(ty).0 {
-                "Vec" => named(&VEC_METHODS, method),
-                "str" => named(&["len"], method),
-                _ => program
-                    .struct_of(f, ty)
-                    .map(|(f, owner)| {
-                        items_of(program, f, Some(owner), |m| {
-                            m.kind == ItemKind::Field || m.has_self
-                        })
+        Ty::Value(f, ty) => match builtin_methods(&ty) {
+            Some((methods, _)) => methods
+                .iter()
+                .map(|(name, _)| item(name, method, ""))
+                .collect(),
+            None => program
+                .struct_of(f, &ty)
+                .map(|(f, owner)| {
+                    items_of(program, f, Some(owner), |m| {
+                        m.kind == ItemKind::Field || m.has_self
                     })
-                    .unwrap_or_default(),
-            }
-        }
+                })
+                .unwrap_or_default(),
+        },
     }
 }
 

@@ -254,12 +254,23 @@ impl Server {
 
     fn hover(&self, at: TextDocumentPositionParams) -> Option<Hover> {
         let (program, file, offset) = self.locate(&at)?;
-        let (span, def) = program.at(file, offset)?;
+        let (span, defs) = program.meanings(file, offset)?;
         let range = Lines::new(&program.files[file].text).range(span);
+        let shown: Vec<String> = defs
+            .iter()
+            .map(|&def| match (defs.len(), def) {
+                (2.., program::Def::Item(f, at)) => {
+                    let items = &program.files[f].module.items;
+                    let owner = items[at].owner.map_or("", |owner| &items[owner].name);
+                    format!("{}  // {owner}", program.describe(def))
+                }
+                _ => program.describe(def),
+            })
+            .collect();
         Some(Hover {
             contents: HoverContents::Markup(MarkupContent {
                 kind: MarkupKind::Markdown,
-                value: format!("```zeru\n{}\n```", program.describe(def)),
+                value: format!("```zeru\n{}\n```", shown.join("\n")),
             }),
             range: Some(range),
         })
@@ -267,11 +278,18 @@ impl Server {
 
     fn definition(&self, at: TextDocumentPositionParams) -> Option<GotoDefinitionResponse> {
         let (program, file, offset) = self.locate(&at)?;
-        let (_, def) = program.at(file, offset)?;
-        let (file, span) = program.declared(def);
-        Some(GotoDefinitionResponse::Scalar(location(
-            &program, file, span,
-        )))
+        let (_, defs) = program.meanings(file, offset)?;
+        let mut found: Vec<Location> = defs
+            .into_iter()
+            .map(|def| {
+                let (file, span) = program.declared(def);
+                location(&program, file, span)
+            })
+            .collect();
+        Some(match found.len() {
+            1 => GotoDefinitionResponse::Scalar(found.remove(0)),
+            _ => GotoDefinitionResponse::Array(found),
+        })
     }
 
     fn references(

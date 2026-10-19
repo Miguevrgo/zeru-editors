@@ -4,7 +4,7 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::lexer::Span;
+use crate::lexer::{Span, lex};
 use crate::parser::{Chain, Hint, ItemKind, LocalKind, Module, Op, UseKind, parse};
 
 pub struct File {
@@ -34,6 +34,67 @@ pub enum Ty {
     Value(usize, String),
     Static(usize, usize),
     Vec,
+}
+
+/// The built-in types' methods and their return types, `T` standing for the
+/// element or the value inside, and `""` for none.
+const VEC_METHODS: [(&str, &str); 12] = [
+    ("len", "usize"),
+    ("capacity", "usize"),
+    ("is_empty", "bool"),
+    ("push", ""),
+    ("pop", "T?"),
+    ("insert", ""),
+    ("remove", "T"),
+    ("get", "(&T)?"),
+    ("clear", ""),
+    ("reserve", ""),
+    ("shrink_to_fit", ""),
+    ("copy", "Vec<T>"),
+];
+const OPTIONAL_METHODS: [(&str, &str); 3] =
+    [("is_some", "bool"), ("is_none", "bool"), ("unwrap", "T")];
+const RESULT_METHODS: [(&str, &str); 4] = [
+    ("is_ok", "bool"),
+    ("is_err", "bool"),
+    ("unwrap", "T"),
+    ("unwrap_err", "i32"),
+];
+const STR_METHODS: [(&str, &str); 1] = [("len", "usize")];
+
+/// The built-in methods of a written type, and what `T` is in them.
+pub fn builtin_methods(ty: &str) -> Option<(&'static [(&'static str, &'static str)], &str)> {
+    let ty = strip(ty);
+    if let Some(inner) = ty.strip_suffix('?') {
+        return Some((&OPTIONAL_METHODS, inner));
+    }
+    if let Some(inner) = ty.strip_suffix('!') {
+        return Some((&RESULT_METHODS, inner));
+    }
+    match generic(ty) {
+        ("Vec", args) => Some((&VEC_METHODS, args.first().copied().unwrap_or_default())),
+        ("str", _) => Some((&STR_METHODS, "")),
+        _ => None,
+    }
+}
+
+/// `ty` with each type parameter in `params` replaced by its argument.
+fn substitute(ty: &str, params: &[String], args: &[&str]) -> String {
+    let mut found = String::new();
+    let mut last = 0;
+    for token in lex(ty) {
+        let name = &ty[token.span.start..token.span.end];
+        if let Some(arg) = params
+            .iter()
+            .position(|p| p == name)
+            .and_then(|at| args.get(at))
+        {
+            found += &ty[last..token.span.start];
+            found += arg;
+            last = token.span.end;
+        }
+    }
+    found + &ty[last..]
 }
 
 impl Program {
@@ -260,11 +321,13 @@ impl Program {
         }
         let at = chain.at?;
         let mut ops = chain.ops.as_slice();
+        let called = ops.first() == Some(&Op::Call);
+        let receiver = match &self.files[file].module.uses[at].kind {
+            UseKind::Member { object, .. } => self.type_of_in(file, object, depth + 1),
+            _ => None,
+        };
         let mut ty = match self.resolve_in(file, at, depth + 1) {
-            Some(Def::Local(f, l)) => match self.files[f].module.locals[l].hint.as_ref()? {
-                Hint::Written(ty) => Ty::Value(f, ty.clone()),
-                Hint::Value(chain) => self.type_of_in(f, chain, depth + 1)?,
-            },
+            Some(Def::Local(f, l)) => self.local_type(f, l, depth + 1)?,
             Some(Def::Item(f, i)) => {
                 let item = &self.files[f].module.items[i];
                 match item.kind {
@@ -273,17 +336,31 @@ impl Program {
                         Ty::Value(f, item.name.clone())
                     }
                     ItemKind::Struct | ItemKind::Enum => Ty::Static(f, i),
-                    ItemKind::Field | ItemKind::Const => Ty::Value(f, item.ty.clone()?),
-                    ItemKind::Fn | ItemKind::Method if ops.first() == Some(&Op::Call) => {
+                    ItemKind::Const => Ty::Value(f, item.ty.clone()?),
+                    ItemKind::Field => self.on_receiver(f, i, item.ty.as_ref()?, receiver),
+                    ItemKind::Fn | ItemKind::Method if called => {
                         ops = &ops[1..];
-                        Ty::Value(f, item.ty.clone()?)
+                        self.on_receiver(f, i, item.ty.as_ref()?, receiver)
                     }
                     _ => return None,
                 }
             }
             Some(Def::Module(_)) => return None,
-            None => match self.text(file, self.files[file].module.uses[at].span) {
-                "Vec" => Ty::Vec,
+            None => match receiver {
+                Some(Ty::Value(f, receiver)) if called => {
+                    let name = self.text(file, self.files[file].module.uses[at].span);
+                    let (methods, inner) = builtin_methods(&receiver)?;
+                    let (_, returned) = methods
+                        .iter()
+                        .find(|(method, returned)| *method == name && !returned.is_empty())?;
+                    ops = &ops[1..];
+                    Ty::Value(f, substitute(returned, &["T".into()], &[inner]))
+                }
+                Some(Ty::Vec) if called => {
+                    ops = &ops[1..];
+                    Ty::Value(file, "Vec".into())
+                }
+                _ if self.text(file, self.files[file].module.uses[at].span) == "Vec" => Ty::Vec,
                 _ => return None,
             },
         };
@@ -291,12 +368,62 @@ impl Program {
             ty = match (op, ty) {
                 (Op::Index, Ty::Value(f, ty)) => Ty::Value(f, element(&ty)?),
                 (Op::Unwrap, Ty::Value(f, ty)) => {
-                    Ty::Value(f, ty.strip_suffix(['?', '!'])?.to_string())
+                    Ty::Value(f, strip(&ty).strip_suffix(['?', '!'])?.to_string())
                 }
                 _ => return None,
             };
         }
         Some(ty)
+    }
+
+    /// The type a local is given by the source: written, initialized from,
+    /// walked by a `for`, or taken out of a payload by a pattern.
+    fn local_type(&self, file: usize, local: usize, depth: usize) -> Option<Ty> {
+        match self.files[file].module.locals[local].hint.as_ref()? {
+            Hint::Written(ty) => Some(Ty::Value(file, ty.clone())),
+            Hint::Value(chain) => self.type_of_in(file, chain, depth),
+            Hint::Element(chain) => match self.type_of_in(file, chain, depth)? {
+                Ty::Value(f, ty) => Some(Ty::Value(f, element(&ty)?)),
+                _ => None,
+            },
+            Hint::Payload {
+                variant,
+                index,
+                subject,
+            } => {
+                if let Some(Def::Item(f, v)) = self.resolve_in(file, *variant, depth) {
+                    let payload = self.files[f].module.items[v].params.get(*index)?;
+                    return Some(Ty::Value(f, payload.clone()));
+                }
+                let name = self.text(file, self.files[file].module.uses[*variant].span);
+                let Ty::Value(f, ty) = self.type_of_in(file, subject, depth)? else {
+                    return None;
+                };
+                let inner = match name {
+                    "Some" => strip(&ty).strip_suffix('?')?,
+                    "Ok" => strip(&ty).strip_suffix('!')?,
+                    "Err" => "i32",
+                    _ => return None,
+                };
+                Some(Ty::Value(f, inner.to_string()))
+            }
+        }
+    }
+
+    /// A member's written type `ty`, with the type parameters of its struct
+    /// replaced by the arguments the receiver's written type gives them.
+    fn on_receiver(&self, file: usize, member: usize, ty: &str, receiver: Option<Ty>) -> Ty {
+        let items = &self.files[file].module.items;
+        let params = items[member]
+            .owner
+            .map_or(&[][..], |owner| &items[owner].type_params);
+        if let Some(Ty::Value(f, receiver)) = receiver {
+            let substituted = substitute(ty, params, &generic(strip(&receiver)).1);
+            if substituted != ty {
+                return Ty::Value(f, substituted);
+            }
+        }
+        Ty::Value(file, ty.to_string())
     }
 
     /// The struct a value of type `ty`, written in `file`, is.
@@ -320,6 +447,32 @@ impl Program {
             span.start < span.end && span.touches(offset)
         })?;
         Some((module.uses[used].span, self.resolve(file, used)?))
+    }
+
+    /// What the name at `offset` means, or for a member of a value whose
+    /// type is unknown, every struct field and method so named.
+    pub fn meanings(&self, file: usize, offset: usize) -> Option<(Span, Vec<Def>)> {
+        if let Some((span, def)) = self.at(file, offset) {
+            return Some((span, vec![def]));
+        }
+        let used = self.files[file].module.uses.iter().find(|used| {
+            matches!(used.kind, UseKind::Member { .. }) && used.span.touches(offset)
+        })?;
+        let name = self.text(file, used.span);
+        let mut found = Vec::new();
+        for (f, source) in self.files.iter().enumerate() {
+            let items = &source.module.items;
+            for (at, item) in items.iter().enumerate() {
+                let member = matches!(item.kind, ItemKind::Field | ItemKind::Method);
+                let of_struct = item
+                    .owner
+                    .is_some_and(|o| items[o].kind == ItemKind::Struct);
+                if member && of_struct && item.name == name {
+                    found.push(Def::Item(f, at));
+                }
+            }
+        }
+        (!found.is_empty()).then_some((used.span, found))
     }
 
     /// Where `def` is declared.
@@ -352,16 +505,10 @@ impl Program {
         match def {
             Def::Local(f, at) => {
                 let local = &self.files[f].module.locals[at];
-                let ty = match &local.hint {
-                    Some(Hint::Value(chain)) => match self.type_of(f, chain) {
-                        Some(Ty::Value(_, ty)) => Some(ty),
-                        _ => None,
-                    },
-                    Some(Hint::Written(ty)) => Some(ty.clone()),
-                    None => None,
-                };
-                match ty {
-                    Some(ty) if !local.decl.contains(':') => format!("{}: {ty}", local.decl),
+                match self.local_type(f, at, 0) {
+                    Some(Ty::Value(_, ty)) if !local.decl.contains(':') => {
+                        format!("{}: {ty}", local.decl)
+                    }
                     _ => local.decl.clone(),
                 }
             }
@@ -480,5 +627,74 @@ mod tests {
         );
         assert_eq!(program.occurrences(Def::Item(geo, 1)).len(), 4);
         assert_eq!(program.describe(Def::Local(main, 0)), "var p: Point");
+    }
+
+    const TYPED: &str = "enum Shape { Circle(f64), Rect(f64, f64) }
+struct Point { x: i32, fn len(self) i32 { return self.x; } }
+struct Map<K, V> { keys: Vec<K>, fn get(self, key: K) (&V)? { return None; } }
+struct Other { fn len(self) i32 { return 0; } }
+fn find(points: &var Vec<Point>) Point? { return None; }
+fn main() {
+    var points: Vec<Point> = Vec.new();
+    var a = &var points[0];
+    var b = *a;
+    var c = points.get(0).unwrap();
+    var d = points.pop()?;
+    var e = find(&var points)!;
+    for p in &points { p.x; }
+    for i in 0..3 { }
+    var m: Map<i64, Point> = make();
+    var f = m.get(1);
+    var s = Shape::Rect(1.0, 2.0);
+    match s { Shape::Rect(w, h) => {} default => {} }
+    match find(&var points) { Some(q) => {} None => {} }
+    var r: i32! = Ok(1);
+    match r { Ok(v) => {} Err(code) => {} }
+    var t: str = \"a\";
+    var byte = t[0];
+    var u = unknown();
+    u.len();
+    u.x;
+    a.x;
+}
+";
+
+    #[test]
+    fn types_follow_what_the_source_writes() {
+        let root = PathBuf::from("/p/main.zr");
+        let read = |_: &Path| Some(TYPED.to_string());
+        let program = Program::load(std::slice::from_ref(&root), None, read);
+        let locals = &program.files[0].module.locals;
+        let shown = |name: &str| {
+            let at = locals.iter().position(|l| l.name == name).unwrap();
+            program.describe(Def::Local(0, at))
+        };
+        for (name, expected) in [
+            ("a", "var a: Point"),
+            ("b", "var b: Point"),
+            ("c", "var c: (&Point)"),
+            ("d", "var d: Point"),
+            ("e", "var e: Point"),
+            ("p", "p: Point"),
+            ("i", "i: i32"),
+            ("f", "var f: (&Point)?"),
+            ("h", "h: f64"),
+            ("q", "q: Point"),
+            ("v", "v: i32"),
+            ("code", "code: i32"),
+            ("byte", "var byte: u8"),
+        ] {
+            assert_eq!(shown(name), expected);
+        }
+        let at = |needle: &str| TYPED.rfind(needle).unwrap() + 2;
+        let meanings = |needle| program.meanings(0, at(needle)).map(|(_, defs)| defs.len());
+        assert_eq!(meanings("u.len"), Some(2));
+        assert_eq!(meanings("u.x"), Some(1));
+        let labels = |needle| {
+            let found = crate::complete::completion(&program, 0, at(needle));
+            found.into_iter().map(|item| item.label).collect::<Vec<_>>()
+        };
+        assert_eq!(labels("a.x"), ["x", "len"]);
+        assert!(labels("u.x").is_empty());
     }
 }

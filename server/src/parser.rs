@@ -18,6 +18,8 @@ pub enum ItemKind {
 }
 
 /// A declaration: an item of the file, or a field, method or variant of one.
+/// `params` are a function's parameters as written, or a variant's payload
+/// types.
 #[derive(Debug)]
 pub struct Item {
     pub kind: ItemKind,
@@ -29,6 +31,7 @@ pub struct Item {
     pub decl: String,
     pub ty: Option<String>,
     pub params: Vec<String>,
+    pub type_params: Vec<String>,
     pub has_self: bool,
 }
 
@@ -52,12 +55,19 @@ pub struct Local {
     pub hint: Option<Hint>,
 }
 
-/// What the source says a local's type is: written out, or a struct literal
-/// or `Type.function(..)` call it is initialized with.
+/// What the source says a local's type is: written out, the value it is
+/// initialized with, an element of what a `for` walks, or a payload of the
+/// variant a pattern names, matched against `subject`.
 #[derive(Clone, Debug)]
 pub enum Hint {
     Written(String),
     Value(Chain),
+    Element(Chain),
+    Payload {
+        variant: usize,
+        index: usize,
+        subject: Chain,
+    },
 }
 
 #[derive(Debug)]
@@ -414,6 +424,7 @@ impl Parser<'_> {
             decl: self.slice(start),
             ty: None,
             params: Vec::new(),
+            type_params: Vec::new(),
             has_self: false,
         });
         self.module.items.len() - 1
@@ -529,7 +540,7 @@ impl Parser<'_> {
         let in_trait = owner.is_some_and(|o| self.module.items[o].kind == ItemKind::Trait);
         let parsed = self.scoped(start, |p| {
             if !in_trait {
-                p.type_params()?;
+                p.type_params(item)?;
             }
             p.expect("(")?;
             let mut params = Vec::new();
@@ -582,7 +593,7 @@ impl Parser<'_> {
         parsed
     }
 
-    fn type_params(&mut self) -> Option<()> {
+    fn type_params(&mut self, item: usize) -> Option<()> {
         if !self.eat("<") {
             return Some(());
         }
@@ -594,6 +605,8 @@ impl Parser<'_> {
             }
             let decl = p.slice(start);
             p.declare(name, LocalKind::TypeParam, decl, None);
+            let name = p.name(name);
+            p.module.items[item].type_params.push(name);
             Some(())
         })
     }
@@ -603,7 +616,7 @@ impl Parser<'_> {
         let name = self.ident("a name")?;
         let item = self.add_item(ItemKind::Struct, name, start, is_pub, None);
         let parsed = self.scoped(start, |p| {
-            p.type_params()?;
+            p.type_params(item)?;
             p.module.items[item].decl = p.slice(start);
             p.expect("{")?;
             let depth = p.depth;
@@ -675,7 +688,11 @@ impl Parser<'_> {
             let name = p.ident("enum variant name")?;
             let variant = p.add_item(ItemKind::Variant, name, name.start, false, Some(item));
             if p.eat("(") {
-                p.list(")", |p| p.ty().map(drop))?;
+                p.list(")", |p| {
+                    let ty = p.ty()?;
+                    p.module.items[variant].params.push(ty);
+                    Some(())
+                })?;
             }
             p.module.items[variant].decl = p.slice(name.start);
             p.finish_item(variant);
@@ -816,10 +833,8 @@ impl Parser<'_> {
             self.module.locals[local].decl = self.slice(start);
             self.expect("=")?;
             let value = self.expression()?;
-            let constructed = value.ops == [Op::Literal]
-                || value.ops == [Op::Call] && self.is_constructor(&value);
             let entry = &mut self.module.locals[local];
-            if entry.hint.is_none() && constructed {
+            if entry.hint.is_none() && value.at.is_some() {
                 entry.hint = Some(Hint::Value(value));
             }
             self.expect(";")
@@ -829,19 +844,6 @@ impl Parser<'_> {
         }
         self.module.locals[local].from = self.prev_end();
         parsed
-    }
-
-    /// Whether a called chain is `Type.function`, a struct's function.
-    fn is_constructor(&self, chain: &Chain) -> bool {
-        let Some(UseKind::Member { object, .. }) = chain.at.map(|at| &self.module.uses[at].kind)
-        else {
-            return false;
-        };
-        let Some(at) = object.at.filter(|_| object.ops.is_empty()) else {
-            return false;
-        };
-        let span = self.module.uses[at].span;
-        self.text[span.start..].starts_with(|c: char| c.is_ascii_uppercase())
     }
 
     /// The type of a `var` or `const`, whose `!` the lexer may have joined to
@@ -875,11 +877,15 @@ impl Parser<'_> {
         self.scoped(start, |p| {
             let name = p.ident("a name")?;
             p.expect("in")?;
-            p.condition()?;
-            if p.eat("..") {
-                p.condition()?;
-            }
-            let local = p.declare(name, LocalKind::Binding, p.name(name), None);
+            let walked = p.condition()?;
+            let hint = match p.eat("..") {
+                true => {
+                    p.condition()?;
+                    Hint::Written("i32".into())
+                }
+                false => Hint::Element(walked),
+            };
+            let local = p.declare(name, LocalKind::Binding, p.name(name), Some(hint));
             p.module.locals[local].from = p.prev_end();
             p.block()
         })
@@ -1035,16 +1041,15 @@ impl Parser<'_> {
                 Some(Chain::default())
             }
             "(" => self.grouped(),
-            "-" | "!" | "*" => {
+            "-" | "!" => {
                 self.bump();
                 self.expr(Prec::Prefix)?;
                 Some(Chain::default())
             }
-            "&" => {
+            "&" | "*" => {
                 self.bump();
                 self.eat("var");
-                self.expr(Prec::Prefix)?;
-                Some(Chain::default())
+                self.expr(Prec::Prefix)
             }
             "match" => self.match_(),
             "asm" => self.asm(),
@@ -1196,13 +1201,13 @@ impl Parser<'_> {
 
     fn match_(&mut self) -> Option<Chain> {
         self.bump();
-        self.condition()?;
+        let subject = self.condition()?;
         self.expect("{")?;
         while !self.at("}") && !self.eof() {
             let start = self.span().start;
             self.scoped(start, |p| {
                 if !p.eat("default") {
-                    p.pattern(false)?;
+                    p.pattern(&subject, None)?;
                 }
                 p.expect("=>")?;
                 let block = p.at("{");
@@ -1223,11 +1228,13 @@ impl Parser<'_> {
         Some(Chain::default())
     }
 
-    fn pattern(&mut self, in_payload: bool) -> Option<()> {
+    /// Alternatives separated by `|`, matched against `subject`. Inside a
+    /// payload, `slot` is the variant's use and the payload's index.
+    fn pattern(&mut self, subject: &Chain, slot: Option<(usize, usize)>) -> Option<()> {
         self.nested(|p| {
-            p.alternative(in_payload)?;
+            p.alternative(subject, slot)?;
             while p.eat("|") {
-                p.alternative(in_payload)?;
+                p.alternative(subject, slot)?;
             }
             Some(())
         })
@@ -1235,7 +1242,7 @@ impl Parser<'_> {
 
     /// `E::V(p, q)` or `Some(p)`, a name bound inside a payload, or else a
     /// constant expression stopping before `|`.
-    fn alternative(&mut self, in_payload: bool) -> Option<()> {
+    fn alternative(&mut self, subject: &Chain, slot: Option<(usize, usize)>) -> Option<()> {
         if !self.at_ident() {
             return self.expr(Prec::BitwiseOr).map(drop);
         }
@@ -1250,15 +1257,33 @@ impl Parser<'_> {
         }
         let after = self.nth(ahead);
         if after == "(" {
-            self.path(UseKind::Name)?;
+            let variant = self.path(UseKind::Name)?;
             self.bump();
-            return self.list(")", |p| p.pattern(true));
+            let inner = match slot {
+                Some(_) => Chain::default(),
+                None => subject.clone(),
+            };
+            let mut index = 0;
+            return self.list(")", |p| {
+                p.pattern(&inner, Some((variant, index)))?;
+                index += 1;
+                Some(())
+            });
         }
-        if in_payload && ahead == 1 && [",", ")", "|"].contains(&after) {
+        if let Some((variant, index)) = slot
+            && ahead == 1
+            && [",", ")", "|"].contains(&after)
+        {
             let span = self.span();
             self.bump();
             if self.name(span) != "_" {
-                self.declare(span, LocalKind::Binding, self.name(span), None);
+                let subject = subject.clone();
+                let hint = Hint::Payload {
+                    variant,
+                    index,
+                    subject,
+                };
+                self.declare(span, LocalKind::Binding, self.name(span), Some(hint));
             }
             return Some(());
         }
