@@ -3,9 +3,10 @@ if exists("b:current_syntax")
 endif
 
 " Keywords
-syntax keyword zeruKeyword fn var const if else import while return for in break continue as struct enum trait match default asm volatile
-syntax keyword zeruBoolean true false None
-syntax keyword zeruType i8 i16 i32 i64 u8 u16 u32 u64 usize f32 f64 bool str Array Vec
+syntax keyword zeruKeyword fn var const pub if else import while return for in break continue as struct enum trait match default asm volatile
+syntax keyword zeruBoolean true false
+syntax keyword zeruConstant None Some Ok Err
+syntax keyword zeruType i8 i16 i32 i64 isize u8 u16 u32 u64 usize f32 f64 bool void str Array Vec HashMap HashSet
 syntax keyword zeruSelf self
 
 " Operators
@@ -34,6 +35,7 @@ syntax match zeruFloat "\<\d\+\.\d*\>"
 
 highlight default link zeruKeyword Keyword
 highlight default link zeruBoolean Boolean
+highlight default link zeruConstant Constant
 highlight default link zeruType Type
 highlight default link zeruCommentLine Comment
 highlight default link zeruCommentBlock Comment

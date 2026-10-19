@@ -31,51 +31,36 @@ vsce package
 
 ## Vim / Neovim
 
-### Manual Installation (Vim)
+### Neovim (0.11 or newer)
 
-Copy the contents of the `vim/` directory to your `.vim` configuration folder:
+The plugin gives `.zr` files their filetype, highlighting and the Zeru
+language server, `zeru lsp`, which is part of the compiler: errors as you type,
+hover, go to definition, references, completion, symbols and highlighting by
+meaning. It finds `zeru` on your `PATH` or in `~/.zeru/bin`.
 
-```bash
-mkdir -p ~/.vim/syntax ~/.vim/ftdetect
-cp vim/syntax/zeru.vim ~/.vim/syntax/
-cp vim/ftdetect/zeru.vim ~/.vim/ftdetect/
-```
-
-### Manual Installation (Neovim)
-
-Copy the contents of the `vim/` directory to your Neovim configuration folder:
-
-```bash
-mkdir -p ~/.config/nvim/syntax ~/.config/nvim/ftdetect
-cp vim/syntax/zeru.vim ~/.config/nvim/syntax/
-cp vim/ftdetect/zeru.vim ~/.config/nvim/ftdetect/
-```
-
-### Using a Plugin Manager (Vim/Neovim)
-
-If you use a plugin manager like [vim-plug](https://github.com/junegunn/vim-plug), add the following to your configuration:
-
-```vim
-Plug 'Miguevrgo/zeru-editors', { 'rtp': 'vim' }
-```
-
-For Neovim with `lazy.nvim`:
+With [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 ```lua
-{
-  "Miguevrgo/zeru-editors",
-  lazy = false,
-  config = function(plugin)
-    vim.opt.rtp:append(plugin.dir .. "/vim")
-  end,
-  init = function()
-    vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {
-      pattern = "*.zr",
-      command = "set filetype=zeru",
-    })
-  end,
-}
+{ "Miguevrgo/zeru-editors", lazy = false }
 ```
+
+The server is configured as `zeru` through `vim.lsp.config`, so any setting can
+be changed from your own config:
+
+```lua
+vim.lsp.config("zeru", { cmd = { "/path/to/zeru", "lsp" } })
+```
+
+### Vim
+
+Highlighting only. With [vim-plug](https://github.com/junegunn/vim-plug):
+
+```vim
+Plug 'Miguevrgo/zeru-editors'
+```
+
+Or copy `ftdetect/zeru.vim` and `syntax/zeru.vim` into the same folders under
+`~/.vim`.
 
 ---
 
