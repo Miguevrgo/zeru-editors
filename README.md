@@ -34,21 +34,26 @@ vsce package
 ### Neovim (0.11 or newer)
 
 The plugin gives `.zr` files their filetype, highlighting and the Zeru
-language server, `zeru lsp`, which is part of the compiler: errors as you type,
-hover, go to definition, references, completion, symbols and highlighting by
-meaning. It finds `zeru` on your `PATH` or in `~/.zeru/bin`.
+language server, `zeru-lsp`, built from `server/` in this repository: syntax
+errors as you type, the compiler's errors on open and on save, hover, go to
+definition, references, rename, completion, signature help, symbols and
+highlighting by meaning.
+
+Building it needs Rust (`cargo`). The compiler's errors need `zeru` on your
+`PATH` or in `~/.zeru/bin`; everything else works without it.
 
 With [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 ```lua
-{ "Miguevrgo/zeru-editors", lazy = false }
+{ "Miguevrgo/zeru-editors", lazy = false, build = "cargo build --release --manifest-path server/Cargo.toml" }
 ```
 
 The server is configured as `zeru` through `vim.lsp.config`, so any setting can
-be changed from your own config:
+be changed from your own config, such as which compiler it runs (`ZERU_PATH`
+in the environment does the same):
 
 ```lua
-vim.lsp.config("zeru", { cmd = { "/path/to/zeru", "lsp" } })
+vim.lsp.config("zeru", { init_options = { zeruPath = "/path/to/zeru" } })
 ```
 
 ### Vim

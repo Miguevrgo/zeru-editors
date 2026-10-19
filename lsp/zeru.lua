@@ -1,11 +1,8 @@
--- The Zeru language server, built into the compiler: `zeru lsp`.
-local zeru = vim.fn.exepath("zeru")
-if zeru == "" then
-  zeru = vim.fn.expand("~/.zeru/bin/zeru")
-end
+-- The Zeru language server, built from this plugin's server/ directory.
+local plugin = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":p:h:h")
 
 return {
-  cmd = { zeru, "lsp" },
+  cmd = { plugin .. "/server/target/release/zeru-lsp" },
   filetypes = { "zeru" },
   root_markers = { ".git" },
 }
