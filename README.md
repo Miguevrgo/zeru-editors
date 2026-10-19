@@ -34,27 +34,45 @@ vsce package
 ### Neovim (0.11 or newer)
 
 The plugin gives `.zr` files their filetype, highlighting and the Zeru
-language server, `zeru-lsp`, built from `server/` in this repository: syntax
-errors as you type, the compiler's errors on open and on save, hover, go to
-definition, references, rename, completion, signature help, symbols and
-highlighting by meaning.
+language server, `zeru-lsp`, built from `server/` in this repository:
 
-Building it needs Rust (`cargo`). The compiler's errors need `zeru` on your
-`PATH` or in `~/.zeru/bin`; everything else works without it.
+- syntax errors as you type, and the compiler's own errors when you open or save a file
+- hover with signatures and documentation, go to definition, references and rename
+- completion with signatures, documentation and argument placeholders
+- signature help, document symbols, and highlighting by meaning
 
-With [lazy.nvim](https://github.com/folke/lazy.nvim):
+#### Install
 
-```lua
-{ "Miguevrgo/zeru-editors", lazy = false, build = "cargo build --release --manifest-path server/Cargo.toml" }
-```
+1. Install Zeru with its `install.sh` (see the
+   [Zeru README](https://github.com/Miguevrgo/Zeru#-installation): one `curl` line), so `zeru`
+   is in `~/.zeru/bin` or on your `PATH`. The compiler's errors need a `zeru`
+   that has the `check` command: `zeru --help` lists it.
+2. Have Rust installed (`cargo`): the plugin builds its server on install.
+3. Add the plugin. With [lazy.nvim](https://github.com/folke/lazy.nvim):
 
-The server is configured as `zeru` through `vim.lsp.config`, so any setting can
-be changed from your own config, such as which compiler it runs (`ZERU_PATH`
-in the environment does the same):
+   ```lua
+   { "Miguevrgo/zeru-editors", lazy = false, build = "cargo build --release --manifest-path server/Cargo.toml" }
+   ```
 
-```lua
-vim.lsp.config("zeru", { init_options = { zeruPath = "/path/to/zeru" } })
-```
+4. Restart Neovim and open a `.zr` file.
+
+With LazyVim's keys: `K` shows the documentation, `gd` goes to the definition,
+`gr` lists references, `<leader>cr` renames, and completion pops up as you type.
+
+#### If something does not work
+
+- **Everything is white:** lazy is still on an older version of the plugin,
+  pinned by `lazy-lock.json`. Run `:Lazy update zeru-editors` and restart.
+- **No errors from the compiler, only syntax errors:** your `zeru` has no
+  `check` command, or the server cannot find it. Update Zeru, or point the
+  server at it (setting `ZERU_PATH` in the environment does the same):
+
+  ```lua
+  vim.lsp.config("zeru", { init_options = { zeruPath = "/path/to/zeru" } })
+  ```
+
+- **No completion or hover at all:** run `:checkhealth vim.lsp`; the `zeru`
+  client should be attached. If the server is missing, run `:Lazy build zeru-editors`.
 
 ### Vim
 
