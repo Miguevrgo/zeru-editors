@@ -27,8 +27,11 @@ pub fn completion(
     if head.ends_with(':') && !head.ends_with("::") {
         return Vec::new();
     }
+    let line = &head[head.rfind('\n').map_or(0, |at| at + 1)..];
     let uses = &program.files[file].module.uses;
-    let mut found = if head.ends_with("::") {
+    let mut found = if let Some(found) = import_names(program, file, line) {
+        found
+    } else if head.ends_with("::") {
         let qualifier = uses.iter().find_map(|used| match used.kind {
             UseKind::Path { qualifier, sep } if sep == start => Some(qualifier),
             _ => None,
@@ -57,13 +60,51 @@ pub fn completion(
     found
 }
 
+/// What an `import` line names next: the modules under its path after a
+/// `.`, or the module's public items after `::`.
+fn import_names(program: &Program, file: usize, line: &str) -> Option<Vec<CompletionItem>> {
+    let path = line.trim_start().strip_prefix("import ")?;
+    let (path, symbols) = match path.split_once("::") {
+        Some((path, _)) => (path.trim(), true),
+        None => (path.trim_end_matches(|c: char| c != '.'), false),
+    };
+    let parts: Vec<&str> = path.split('.').filter(|part| !part.is_empty()).collect();
+    let std = program.prelude.and_then(|at| program.files[at].path.parent());
+    let dir = match parts.split_first() {
+        Some((&"std", rest)) => std?.join(rest.join("/")),
+        _ => program.files[file].path.parent()?.join(parts.join("/")),
+    };
+    if symbols {
+        let target = program.find(&dir.with_extension("zr"))?;
+        return Some(items_of(program, target, None, 1, |item| item.is_pub));
+    }
+    let mut found: Vec<CompletionItem> = std::fs::read_dir(&dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|entry| {
+            let path = entry.path();
+            let module = path.is_dir() || path.extension().is_some_and(|ext| ext == "zr");
+            let name = path.file_stem()?.to_str()?.to_string();
+            (module && name != "builtin" && path != program.files[file].path).then_some(name)
+        })
+        .map(|name| entry(&name, CompletionItemKind::MODULE, 1))
+        .collect();
+    if parts.is_empty() {
+        found.push(entry("std", CompletionItemKind::MODULE, 0));
+    }
+    Some(found)
+}
+
 /// An item labelled `label`, sorted in `group`: locals first, then members,
-/// the file's items, imports, the prelude and the keywords.
+/// the file's items, imports, the prelude and the keywords; constants after
+/// the rest of their group.
 fn entry(label: &str, kind: CompletionItemKind, group: u8) -> CompletionItem {
+    let rank = u8::from(kind == CompletionItemKind::CONSTANT);
     CompletionItem {
         label: label.to_string(),
         kind: Some(kind),
-        sort_text: Some(format!("{group}{label}")),
+        sort_text: Some(format!("{group}{rank}{label}")),
         ..Default::default()
     }
 }
@@ -336,5 +377,32 @@ fn main() {
         };
         assert!(sorted("v") < sorted("main") && sorted("main") < sorted("exit"));
         assert!(sorted("exit") < sorted("while"));
+    }
+
+    #[test]
+    fn imports_and_functions_before_constants() {
+        let std = crate::check::find_std(crate::check::find_zeru(None).as_deref());
+        let root = PathBuf::from("/p/main.zr");
+        let labels = |source: &str, offset: usize| {
+            let source = source.to_string();
+            let read = |path: &Path| match path == root {
+                true => Some(source.clone()),
+                false => std::fs::read_to_string(path).ok(),
+            };
+            let program = Program::load(std::slice::from_ref(&root), std.as_deref(), read);
+            let main = program.find(&root).unwrap();
+            let mut found = completion(&program, main, offset, true);
+            found.sort_by(|a, b| a.sort_text.cmp(&b.sort_text));
+            found.into_iter().map(|item| item.label).collect::<Vec<_>>()
+        };
+        let modules = labels("import std.\n", 11);
+        assert!(modules.contains(&"fs".into()) && modules.contains(&"collections".into()));
+        assert!(!modules.contains(&"builtin".into()));
+        assert!(labels("import std.collections.\n", 23).contains(&"hashmap".into()));
+        let source = "import std.fs::{};\nfn main() { fs::open(\"p\", 0, 0); }\n";
+        assert!(labels(source, 16).contains(&"read_file".into()));
+        let members = labels(source, source.find("fs::").unwrap() + 4);
+        let open = members.iter().position(|label| label == "open").unwrap();
+        assert!(open < members.iter().position(|label| label == "O_RDONLY").unwrap());
     }
 }

@@ -47,6 +47,12 @@ pub struct Vec<T> {
 struct Str {
     // The length in bytes.
     fn len(self) usize {}
+
+    // The parts between each `sep`, sharing its memory; "a,,b".split(",") gives "a", "" and "b".
+    fn split(self, sep: str) Vec<str> {}
+
+    // The lines, without their "\n" or "\r\n"; a closing "\n" starts no empty line.
+    fn lines(self) Vec<str> {}
 }
 
 // `T?`: a value, or None.
