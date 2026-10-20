@@ -9,9 +9,9 @@ use lsp_types::{
     SignatureHelp, SignatureInformation, TextEdit,
 };
 
+use crate::Lines;
 use crate::lexer::{KEYWORDS, Kind, PRIMITIVES, lex};
 use crate::parser::{Item, ItemKind, LocalKind, UseKind};
-use crate::Lines;
 use crate::program::{BUILTINS, Def, Program, Ty};
 
 pub fn completion(
@@ -50,13 +50,21 @@ pub fn completion(
             .and_then(|object| program.type_of(file, object))
             .map(|ty| members(program, ty))
             .unwrap_or_default()
-    } else if program.files[file].module.types.iter().any(|ty| ty.start <= start && start <= ty.end) {
+    } else if program.files[file]
+        .module
+        .types
+        .iter()
+        .any(|ty| ty.start <= start && start <= ty.end)
+    {
         let mut found = names(program, file, offset);
         found.retain(|item| match item.kind {
             Some(CompletionItemKind::KEYWORD) => PRIMITIVES.contains(&item.label.as_str()),
             kind => [CompletionItemKind::STRUCT, CompletionItemKind::ENUM]
                 .into_iter()
-                .chain([CompletionItemKind::TYPE_PARAMETER, CompletionItemKind::MODULE])
+                .chain([
+                    CompletionItemKind::TYPE_PARAMETER,
+                    CompletionItemKind::MODULE,
+                ])
                 .any(|wanted| kind == Some(wanted)),
         });
         found
@@ -80,7 +88,9 @@ fn import_names(program: &Program, file: usize, line: &str) -> Option<Vec<Comple
         None => (path.trim_end_matches(|c: char| c != '.'), false),
     };
     let parts: Vec<&str> = path.split('.').filter(|part| !part.is_empty()).collect();
-    let std = program.prelude.and_then(|at| program.files[at].path.parent());
+    let std = program
+        .prelude
+        .and_then(|at| program.files[at].path.parent());
     let dir = match parts.split_first() {
         Some((&"std", rest)) => std?.join(rest.join("/")),
         _ => program.files[file].path.parent()?.join(parts.join("/")),
@@ -268,7 +278,10 @@ fn names(program: &Program, file: usize, offset: usize) -> Vec<CompletionItem> {
 /// functions it does not import from them, each adding its import when
 /// accepted, as rust-analyzer does.
 fn importable(program: &Program, file: usize) -> Vec<CompletionItem> {
-    let Some(std) = program.prelude.and_then(|at| program.files[at].path.parent()) else {
+    let Some(std) = program
+        .prelude
+        .and_then(|at| program.files[at].path.parent())
+    else {
         return Vec::new();
     };
     let source = &program.files[file];
@@ -283,7 +296,9 @@ fn importable(program: &Program, file: usize) -> Vec<CompletionItem> {
         let relative = relative.with_extension("");
         let path = format!("std.{}", relative.to_string_lossy().replace('/', "."));
         let imports = source.module.imports.iter().zip(&source.imports);
-        let imported = imports.filter(|(_, target)| **target == Some(f)).map(|(import, _)| import);
+        let imported = imports
+            .filter(|(_, target)| **target == Some(f))
+            .map(|(import, _)| import);
         let imported: Vec<_> = imported.collect();
         if imported.is_empty() {
             let mut item = declared(program, Def::Module(f), 4);
@@ -322,7 +337,14 @@ fn import_edit(text: &str, path: &str, symbol: Option<&str>) -> TextEdit {
             Some((close, text[open + braces.len()..close].trim().is_empty()))
         });
         if let Some((close, empty)) = close {
-            return insert(close, if empty { symbol.into() } else { format!(", {symbol}") });
+            return insert(
+                close,
+                if empty {
+                    symbol.into()
+                } else {
+                    format!(", {symbol}")
+                },
+            );
         }
         let plain = format!("import {path};");
         if let Some(at) = text.find(&plain) {
@@ -495,7 +517,12 @@ fn main() {
         assert!(labels(source, 16).contains(&"read_file".into()));
         let members = labels(source, source.find("fs::").unwrap() + 4);
         let open = members.iter().position(|label| label == "open").unwrap();
-        assert!(open < members.iter().position(|label| label == "O_RDONLY").unwrap());
+        assert!(
+            open < members
+                .iter()
+                .position(|label| label == "O_RDONLY")
+                .unwrap()
+        );
     }
 
     #[test]
@@ -510,12 +537,21 @@ fn main() {
             };
             let program = Program::load(std::slice::from_ref(&root), std.as_deref(), read);
             let main = program.find(&root).unwrap();
-            completion(&program, main, source.find(needle).unwrap() + needle.len(), true)
+            completion(
+                &program,
+                main,
+                source.find(needle).unwrap() + needle.len(),
+                true,
+            )
         };
         let edit = |found: &[CompletionItem], label: &str| {
             let item = found.iter().find(|item| item.label == label).unwrap();
             let edit = &item.additional_text_edits.as_ref().unwrap()[0];
-            (edit.range.start.line, edit.range.start.character, edit.new_text.clone())
+            (
+                edit.range.start.line,
+                edit.range.start.character,
+                edit.new_text.clone(),
+            )
         };
         let types = complete("import std.fs;\nfn main() {\n    var m: Ha\n}\n", ": Ha");
         let labels: Vec<&str> = types.iter().map(|item| item.label.as_str()).collect();
@@ -529,6 +565,9 @@ fn main() {
         assert!(values.iter().any(|item| item.label == "main"));
         assert_eq!(edit(&values, "math"), (0, 0, "import std.math;\n".into()));
         let source = "import std.collections.hashmap::{};\nfn main() { var m: Ha }\n";
-        assert_eq!(edit(&complete(source, ": Ha"), "HashMap"), (0, 33, "HashMap".into()));
+        assert_eq!(
+            edit(&complete(source, ": Ha"), "HashMap"),
+            (0, 33, "HashMap".into())
+        );
     }
 }

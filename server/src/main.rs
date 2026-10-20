@@ -23,24 +23,25 @@ use lsp_types::notification::{
     Notification as _, PublishDiagnostics,
 };
 use lsp_types::request::{
-    Completion, DocumentSymbolRequest, GotoDefinition, HoverRequest, References, Rename,
-    Request as _, SemanticTokensFullRequest, SignatureHelpRequest,
+    Completion, DocumentSymbolRequest, GotoDefinition, HoverRequest, InlayHintRequest, References,
+    Rename, Request as _, SemanticTokensFullRequest, SignatureHelpRequest,
 };
 use lsp_types::{
     CompletionList, CompletionOptions, CompletionResponse, Diagnostic,
     DiagnosticRelatedInformation, DiagnosticSeverity, DocumentSymbol, DocumentSymbolResponse,
-    GotoDefinitionResponse, Hover, HoverContents, HoverProviderCapability, Location, MarkupContent,
-    MarkupKind, OneOf, Position, PublishDiagnosticsParams, Range, SemanticTokens,
-    SemanticTokensFullOptions, SemanticTokensLegend, SemanticTokensOptions, SemanticTokensResult,
-    ServerCapabilities, SignatureHelpOptions, SymbolKind, TextDocumentPositionParams,
-    TextDocumentSyncCapability, TextDocumentSyncKind, TextDocumentSyncOptions,
-    TextDocumentSyncSaveOptions, TextEdit, Uri, WorkspaceEdit,
+    GotoDefinitionResponse, Hover, HoverContents, HoverProviderCapability, InlayHint,
+    InlayHintKind, InlayHintLabel, Location, MarkupContent, MarkupKind, OneOf, Position,
+    PublishDiagnosticsParams, Range, SemanticTokens, SemanticTokensFullOptions,
+    SemanticTokensLegend, SemanticTokensOptions, SemanticTokensResult, ServerCapabilities,
+    SignatureHelpOptions, SymbolKind, TextDocumentPositionParams, TextDocumentSyncCapability,
+    TextDocumentSyncKind, TextDocumentSyncOptions, TextDocumentSyncSaveOptions, TextEdit, Uri,
+    WorkspaceEdit,
 };
 use serde_json::{Value, json};
 
 use lexer::Span;
-use parser::ItemKind;
-use program::{BUILTINS, Program};
+use parser::{Hint, ItemKind, LocalKind};
+use program::{BUILTINS, Program, Ty};
 
 /// What the main loop answers: a message from the editor, which closing
 /// its end turns into `exit`, or a finished check.
@@ -144,6 +145,7 @@ fn capabilities() -> ServerCapabilities {
         references_provider: Some(OneOf::Left(true)),
         rename_provider: Some(OneOf::Left(true)),
         document_symbol_provider: Some(OneOf::Left(true)),
+        inlay_hint_provider: Some(OneOf::Left(true)),
         completion_provider: Some(CompletionOptions {
             trigger_characters: Some(vec![".".into(), ":".into()]),
             ..Default::default()
@@ -203,6 +205,10 @@ impl Server {
             DocumentSymbolRequest::METHOD => {
                 answer::<DocumentSymbolRequest>(request, |p| self.symbols(&p.text_document.uri))
             }
+            InlayHintRequest::METHOD => answer::<InlayHintRequest>(request, |p| {
+                let (program, file) = self.program(&p.text_document.uri)?;
+                Some(type_hints(&program, file))
+            }),
             Completion::METHOD => answer::<Completion>(request, |p| {
                 let (program, file, offset) = self.locate(&p.text_document_position)?;
                 let items = complete::completion(&program, file, offset, self.snippets);
@@ -570,6 +576,32 @@ fn uri_of(path: &Path) -> Uri {
         }
     }
     uri.parse().expect("an encoded path is a URI")
+}
+
+/// The types the source leaves out, shown after each name as `: T`, as
+/// rust-analyzer's inlay hints.
+fn type_hints(program: &Program, file: usize) -> Vec<InlayHint> {
+    let lines = Lines::new(&program.files[file].text);
+    let locals = program.files[file].module.locals.iter().enumerate();
+    locals
+        .filter(|(_, local)| matches!(local.kind, LocalKind::Var | LocalKind::Binding))
+        .filter(|(_, local)| !matches!(local.hint, Some(Hint::Written(_))))
+        .filter_map(|(at, local)| {
+            let Some(Ty::Value(_, ty)) = program.local_type(file, at, 0) else {
+                return None;
+            };
+            Some(InlayHint {
+                position: lines.position(local.span.end),
+                label: InlayHintLabel::String(format!(": {ty}")),
+                kind: Some(InlayHintKind::TYPE),
+                text_edits: None,
+                tooltip: None,
+                padding_left: None,
+                padding_right: None,
+                data: None,
+            })
+        })
+        .collect()
 }
 
 /// A file's text and where its lines start, to turn byte offsets into LSP

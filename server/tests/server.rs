@@ -208,6 +208,28 @@ fn answers_and_checks_without_blocking() {
     );
     assert!(shown(&server.at("textDocument/hover", 19, 8)).contains("var v: Vec<i32>"));
 
+    let range =
+        json!({ "start": { "line": 0, "character": 0 }, "end": { "line": 30, "character": 0 } });
+    let uri = server.uri("main.zr");
+    let hints = server.request(
+        "textDocument/inlayHint",
+        json!({ "textDocument": { "uri": uri }, "range": range }),
+    );
+    let hints: Vec<(u64, u64, &str)> = hints
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|hint| {
+            let at = &hint["position"];
+            (
+                at["line"].as_u64().unwrap(),
+                at["character"].as_u64().unwrap(),
+                hint["label"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(hints, [(17, 9, ": Point"), (18, 9, ": Point")]);
+
     let definition = server.at("textDocument/definition", 20, 26);
     assert_eq!(definition["uri"], server.uri("main.zr"));
     assert_eq!(

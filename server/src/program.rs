@@ -355,7 +355,9 @@ impl Program {
                 Op::RefVar => format!("&var {written}"),
                 Op::Deref => {
                     let inner = written.trim().strip_prefix("&var ");
-                    inner.or(written.trim().strip_prefix(['&', '*']))?.to_string()
+                    inner
+                        .or(written.trim().strip_prefix(['&', '*']))?
+                        .to_string()
                 }
                 _ => return None,
             };
