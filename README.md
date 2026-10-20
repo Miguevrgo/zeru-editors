@@ -38,7 +38,11 @@ language server, `zeru-lsp`, built from `server/` in this repository:
 
 - syntax errors as you type, and the compiler's own errors when you open or save a file
 - hover with signatures and documentation, go to definition, references and rename
-- completion with signatures, documentation and argument placeholders
+- inferred types shown in grey after each name, as `var n = 3` getting `: i32`
+- completion with signatures, documentation and argument placeholders; only
+  types where a type goes, and module names inside `import std.`
+- std modules, types and functions you have not imported yet: accepting
+  `HashMap` adds `import std.collections.hashmap::{HashMap};`
 - signature help, document symbols, and highlighting by meaning
 
 #### Install
@@ -46,7 +50,8 @@ language server, `zeru-lsp`, built from `server/` in this repository:
 1. Install Zeru with its `install.sh` (see the
    [Zeru README](https://github.com/Miguevrgo/Zeru#-installation): one `curl` line), so `zeru`
    is in `~/.zeru/bin` or on your `PATH`. The compiler's errors need a `zeru`
-   that has the `check` command: `zeru --help` lists it.
+   that has the `check` command: `zeru --help` lists it. `zeru update` later
+   installs the build of Zeru's latest commit.
 2. Have Rust installed (`cargo`): the plugin builds its server on install.
 3. Add the plugin. With [lazy.nvim](https://github.com/folke/lazy.nvim):
 
@@ -58,6 +63,41 @@ language server, `zeru-lsp`, built from `server/` in this repository:
 
 With LazyVim's keys: `K` shows the documentation, `gd` goes to the definition,
 `gr` lists references, `<leader>cr` renames, and completion pops up as you type.
+`:Lazy update zeru-editors` updates the plugin and rebuilds the server.
+
+#### Optional: blink.cmp
+
+With [blink.cmp](https://github.com/saghen/blink.cmp), as in LazyVim, the
+signature window does not open by itself, and completion labels stay white
+because Zeru has no tree-sitter grammar. This turns on the window and gives
+each label its kind's color, as the icons have:
+
+```lua
+{
+  "saghen/blink.cmp",
+  opts = {
+    signature = { enabled = true },
+    completion = {
+      menu = {
+        draw = {
+          components = {
+            label = {
+              highlight = function(ctx)
+                local menu = require("blink.cmp.config.completion.menu")
+                local highlights = menu.default.draw.components.label.highlight(ctx)
+                if vim.bo.filetype == "zeru" and not ctx.deprecated then
+                  highlights[1].group = ctx.kind_hl
+                end
+                return highlights
+              end,
+            },
+          },
+        },
+      },
+    },
+  },
+}
+```
 
 #### If something does not work
 
@@ -71,6 +111,8 @@ With LazyVim's keys: `K` shows the documentation, `gd` goes to the definition,
   vim.lsp.config("zeru", { init_options = { zeruPath = "/path/to/zeru" } })
   ```
 
+- **No grey types after names:** inlay hints are off; `:lua vim.lsp.inlay_hint.enable()`
+  turns them on.
 - **No completion or hover at all:** run `:checkhealth vim.lsp`; the `zeru`
   client should be attached. If the server is missing, run `:Lazy build zeru-editors`.
 
