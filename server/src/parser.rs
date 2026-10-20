@@ -909,7 +909,12 @@ impl Parser<'_> {
         let start = self.span().start;
         self.bump();
         self.scoped(start, |p| {
-            let name = p.ident("a name")?;
+            let mut name = p.ident("a name")?;
+            if p.eat(",") {
+                let index = p.declare(name, LocalKind::Binding, p.name(name), None);
+                p.module.locals[index].hint = Some(Hint::Written("usize".into()));
+                name = p.ident("a name")?;
+            }
             p.expect("in")?;
             let walked = p.condition()?;
             let hint = match p.eat("..") {

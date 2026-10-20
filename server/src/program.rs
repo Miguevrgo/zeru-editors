@@ -667,6 +667,7 @@ fn main() {
     var e = find(&var points)!;
     for p in &points { p.x; }
     for i in 0..3 { }
+    for k, item in points { }
     var m: Map<i64, Point> = make();
     var f = m.get(1);
     var s = Shape::Rect(1.0, 2.0);
@@ -710,6 +711,8 @@ fn main() {
             ("e", "var e: Point"),
             ("p", "p: Point"),
             ("i", "i: i32"),
+            ("k", "k: usize"),
+            ("item", "item: Point"),
             ("f", "var f: (&Point)?"),
             ("h", "h: f64"),
             ("q", "q: Point"),

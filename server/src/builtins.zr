@@ -41,6 +41,24 @@ pub struct Vec<T> {
 
     // A deep copy, so the original stays usable; O(n).
     fn copy(self) Vec<T> {}
+
+    // Sorts it in ascending order; for numbers and other types `<` compares.
+    fn sort(var self) {}
+
+    // Exchanges the elements at `i` and `j`; panics out of bounds.
+    fn swap(var self, i: usize, j: usize) {}
+
+    // Whether an element equals `value`.
+    fn contains(self, value: T) bool {}
+
+    // The elements added up; 0 when there are none.
+    fn sum(self) T {}
+
+    // The smallest element, or None when there are none.
+    fn min(self) T? {}
+
+    // The largest element, or None when there are none.
+    fn max(self) T? {}
 }
 
 // A string: a slice of ASCII bytes.
@@ -53,6 +71,21 @@ struct Str {
 
     // The lines, without their "\n" or "\r\n"; a closing "\n" starts no empty line.
     fn lines(self) Vec<str> {}
+
+    // Without the spaces, tabs and line breaks at either end: "  hi \n".trim() is "hi".
+    fn trim(self) str {}
+
+    // Whether it begins with `prefix`.
+    fn starts_with(self, prefix: str) bool {}
+
+    // Whether it ends with `suffix`.
+    fn ends_with(self, suffix: str) bool {}
+
+    // The integer it spells, as "-42"; error 22 when it spells none, 34 when it does not fit.
+    fn parse_int(self) i64! {}
+
+    // The number it spells, as "3.5" or "1e-3"; error 22 when it spells none.
+    fn parse_float(self) f64! {}
 }
 
 // `T?`: a value, or None.
