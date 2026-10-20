@@ -5,12 +5,13 @@ use std::collections::HashSet;
 
 use lsp_types::{
     CompletionItem, CompletionItemKind, CompletionItemLabelDetails, Documentation,
-    InsertTextFormat, MarkupContent, MarkupKind, ParameterInformation, ParameterLabel,
-    SignatureHelp, SignatureInformation,
+    InsertTextFormat, MarkupContent, MarkupKind, ParameterInformation, ParameterLabel, Range,
+    SignatureHelp, SignatureInformation, TextEdit,
 };
 
 use crate::lexer::{KEYWORDS, Kind, PRIMITIVES, lex};
 use crate::parser::{Item, ItemKind, LocalKind, UseKind};
+use crate::Lines;
 use crate::program::{BUILTINS, Def, Program, Ty};
 
 pub fn completion(
@@ -49,6 +50,16 @@ pub fn completion(
             .and_then(|object| program.type_of(file, object))
             .map(|ty| members(program, ty))
             .unwrap_or_default()
+    } else if program.files[file].module.types.iter().any(|ty| ty.start <= start && start <= ty.end) {
+        let mut found = names(program, file, offset);
+        found.retain(|item| match item.kind {
+            Some(CompletionItemKind::KEYWORD) => PRIMITIVES.contains(&item.label.as_str()),
+            kind => [CompletionItemKind::STRUCT, CompletionItemKind::ENUM]
+                .into_iter()
+                .chain([CompletionItemKind::TYPE_PARAMETER, CompletionItemKind::MODULE])
+                .any(|wanted| kind == Some(wanted)),
+        });
+        found
     } else {
         names(program, file, offset)
     };
@@ -245,9 +256,90 @@ fn names(program: &Program, file: usize, offset: usize) -> Vec<CompletionItem> {
             found.extend(items_of(program, shared, None, 4, |item| item.is_pub));
         }
     }
+    let shown: HashSet<String> = found.iter().map(|item| item.label.clone()).collect();
+    let importable = importable(program, file).into_iter();
+    found.extend(importable.filter(|item| !shown.contains(&item.label)));
     let words = KEYWORDS.iter().chain(&PRIMITIVES);
     found.extend(words.map(|word| entry(word, CompletionItemKind::KEYWORD, 5)));
     found
+}
+
+/// The std modules `file` does not import, and the public types and
+/// functions it does not import from them, each adding its import when
+/// accepted, as rust-analyzer does.
+fn importable(program: &Program, file: usize) -> Vec<CompletionItem> {
+    let Some(std) = program.prelude.and_then(|at| program.files[at].path.parent()) else {
+        return Vec::new();
+    };
+    let source = &program.files[file];
+    let mut found = Vec::new();
+    for (f, module) in program.files.iter().enumerate() {
+        let Ok(relative) = module.path.strip_prefix(std) else {
+            continue;
+        };
+        if !module.std || Some(f) == program.prelude || f == file {
+            continue;
+        }
+        let relative = relative.with_extension("");
+        let path = format!("std.{}", relative.to_string_lossy().replace('/', "."));
+        let imports = source.module.imports.iter().zip(&source.imports);
+        let imported = imports.filter(|(_, target)| **target == Some(f)).map(|(import, _)| import);
+        let imported: Vec<_> = imported.collect();
+        if imported.is_empty() {
+            let mut item = declared(program, Def::Module(f), 4);
+            item.additional_text_edits = Some(vec![import_edit(&source.text, &path, None)]);
+            found.push(item);
+        }
+        for (at, item) in module.module.items.iter().enumerate() {
+            let kinds = [ItemKind::Fn, ItemKind::Struct, ItemKind::Enum];
+            let wanted = item.owner.is_none() && item.is_pub && kinds.contains(&item.kind);
+            let reachable = item.kind == ItemKind::Fn && !imported.is_empty();
+            if !wanted || reachable || imported.iter().any(|i| i.symbols.contains(&item.name)) {
+                continue;
+            }
+            let mut offered = declared(program, Def::Item(f, at), 4);
+            let edit = import_edit(&source.text, &path, Some(&item.name));
+            offered.additional_text_edits = Some(vec![edit]);
+            found.push(offered);
+        }
+    }
+    found
+}
+
+/// The edit that makes `text` import `symbol` from the module at `path`, or
+/// the module itself: into an `import path::{..}` it has, onto an
+/// `import path;`, or as a new import after its last one.
+fn import_edit(text: &str, path: &str, symbol: Option<&str>) -> TextEdit {
+    let lines = Lines::new(text);
+    let insert = |at: usize, new: String| {
+        let at = lines.position(at);
+        TextEdit::new(Range::new(at, at), new)
+    };
+    if let Some(symbol) = symbol {
+        let braces = format!("import {path}::{{");
+        let close = text.find(&braces).and_then(|open| {
+            let close = open + text[open..].find('}')?;
+            Some((close, text[open + braces.len()..close].trim().is_empty()))
+        });
+        if let Some((close, empty)) = close {
+            return insert(close, if empty { symbol.into() } else { format!(", {symbol}") });
+        }
+        let plain = format!("import {path};");
+        if let Some(at) = text.find(&plain) {
+            return insert(at + plain.len() - 1, format!("::{{{symbol}}}"));
+        }
+    }
+    let line = match symbol {
+        Some(symbol) => format!("import {path}::{{{symbol}}};\n"),
+        None => format!("import {path};\n"),
+    };
+    let mut after = 0;
+    for (at, _) in text.match_indices("import ") {
+        if text[..at].ends_with('\n') || at == 0 {
+            after = text[at..].find('\n').map_or(text.len(), |end| at + end + 1);
+        }
+    }
+    insert(after, line)
 }
 
 pub fn signature_help(program: &Program, file: usize, offset: usize) -> Option<SignatureHelp> {
@@ -404,5 +496,39 @@ fn main() {
         let members = labels(source, source.find("fs::").unwrap() + 4);
         let open = members.iter().position(|label| label == "open").unwrap();
         assert!(open < members.iter().position(|label| label == "O_RDONLY").unwrap());
+    }
+
+    #[test]
+    fn types_only_where_types_go_and_imports_on_accept() {
+        let std = crate::check::find_std(crate::check::find_zeru(None).as_deref());
+        let root = PathBuf::from("/p/main.zr");
+        let complete = |source: &str, needle: &str| {
+            let source = source.to_string();
+            let read = |path: &Path| match path == root {
+                true => Some(source.clone()),
+                false => std::fs::read_to_string(path).ok(),
+            };
+            let program = Program::load(std::slice::from_ref(&root), std.as_deref(), read);
+            let main = program.find(&root).unwrap();
+            completion(&program, main, source.find(needle).unwrap() + needle.len(), true)
+        };
+        let edit = |found: &[CompletionItem], label: &str| {
+            let item = found.iter().find(|item| item.label == label).unwrap();
+            let edit = &item.additional_text_edits.as_ref().unwrap()[0];
+            (edit.range.start.line, edit.range.start.character, edit.new_text.clone())
+        };
+        let types = complete("import std.fs;\nfn main() {\n    var m: Ha\n}\n", ": Ha");
+        let labels: Vec<&str> = types.iter().map(|item| item.label.as_str()).collect();
+        assert!(labels.contains(&"Vec") && labels.contains(&"i64"));
+        assert!(!labels.contains(&"main") && !labels.contains(&"println"));
+        assert_eq!(
+            edit(&types, "HashMap"),
+            (1, 0, "import std.collections.hashmap::{HashMap};\n".into())
+        );
+        let values = complete("fn main() {\n    var x = \n}\n", "= ");
+        assert!(values.iter().any(|item| item.label == "main"));
+        assert_eq!(edit(&values, "math"), (0, 0, "import std.math;\n".into()));
+        let source = "import std.collections.hashmap::{};\nfn main() { var m: Ha }\n";
+        assert_eq!(edit(&complete(source, ": Ha"), "HashMap"), (0, 33, "HashMap".into()));
     }
 }

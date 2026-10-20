@@ -134,6 +134,8 @@ pub enum Op {
 #[derive(Debug, Default)]
 pub struct Module {
     pub tokens: Vec<Token>,
+    /// Where types are written, each from the end of the token before.
+    pub types: Vec<Span>,
     pub items: Vec<Item>,
     pub locals: Vec<Local>,
     pub scopes: Vec<Scope>,
@@ -924,8 +926,11 @@ impl Parser<'_> {
     }
 
     fn ty(&mut self) -> Option<String> {
+        let from = self.prev_end();
         let start = self.span().start;
-        self.ty_inner()?;
+        let parsed = self.ty_inner();
+        self.module.types.push(Span::new(from, self.span().start));
+        parsed?;
         Some(self.slice(start))
     }
 

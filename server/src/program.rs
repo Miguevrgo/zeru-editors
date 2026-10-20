@@ -97,6 +97,11 @@ impl Program {
             let path = std.join("builtin.zr");
             program.prelude = program.add(path, &read, true);
             queue.extend(program.prelude.map(|at| (at, std.to_path_buf())));
+            for path in modules(std) {
+                if let Some(at) = program.add(path, &read, true) {
+                    queue.push((at, std.to_path_buf()));
+                }
+            }
         }
         for root in roots {
             let dir = root.parent().unwrap_or(Path::new("")).to_path_buf();
@@ -529,6 +534,18 @@ impl Program {
             Def::Module(f) => format!("module {}", self.files[f].path.display()),
         }
     }
+}
+
+/// Every module under `dir`, loaded so completion can offer to import them.
+fn modules(dir: &Path) -> Vec<PathBuf> {
+    let entries = std::fs::read_dir(dir).into_iter().flatten().flatten();
+    entries
+        .flat_map(|entry| match entry.path() {
+            path if path.is_dir() => modules(&path),
+            path if path.extension().is_some_and(|ext| ext == "zr") => vec![path],
+            _ => Vec::new(),
+        })
+        .collect()
 }
 
 /// A type seen through references, pointers and parentheses.
