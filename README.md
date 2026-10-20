@@ -44,6 +44,7 @@ language server, `zeru-lsp`, built from `server/` in this repository:
 - std modules, types and functions you have not imported yet: accepting
   `HashMap` adds `import std.collections.hashmap::{HashMap};`
 - signature help, document symbols, and highlighting by meaning
+- formatting with `zeru fmt`, as LazyVim does on save
 
 #### Install
 

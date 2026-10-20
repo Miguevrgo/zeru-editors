@@ -230,6 +230,12 @@ fn answers_and_checks_without_blocking() {
         .collect();
     assert_eq!(hints, [(17, 9, ": Point"), (18, 9, ": Point")]);
 
+    let formatted = server.request(
+        "textDocument/formatting",
+        json!({ "textDocument": { "uri": server.uri("main.zr") }, "options": { "tabSize": 4, "insertSpaces": true } }),
+    );
+    assert_eq!(formatted[0]["newText"].as_str().unwrap(), MAIN);
+
     let definition = server.at("textDocument/definition", 20, 26);
     assert_eq!(definition["uri"], server.uri("main.zr"));
     assert_eq!(

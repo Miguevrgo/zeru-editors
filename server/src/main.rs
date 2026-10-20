@@ -23,8 +23,8 @@ use lsp_types::notification::{
     Notification as _, PublishDiagnostics,
 };
 use lsp_types::request::{
-    Completion, DocumentSymbolRequest, GotoDefinition, HoverRequest, InlayHintRequest, References,
-    Rename, Request as _, SemanticTokensFullRequest, SignatureHelpRequest,
+    Completion, DocumentSymbolRequest, Formatting, GotoDefinition, HoverRequest, InlayHintRequest,
+    References, Rename, Request as _, SemanticTokensFullRequest, SignatureHelpRequest,
 };
 use lsp_types::{
     CompletionList, CompletionOptions, CompletionResponse, Diagnostic,
@@ -146,6 +146,7 @@ fn capabilities() -> ServerCapabilities {
         rename_provider: Some(OneOf::Left(true)),
         document_symbol_provider: Some(OneOf::Left(true)),
         inlay_hint_provider: Some(OneOf::Left(true)),
+        document_formatting_provider: Some(OneOf::Left(true)),
         completion_provider: Some(CompletionOptions {
             trigger_characters: Some(vec![".".into(), ":".into()]),
             ..Default::default()
@@ -205,6 +206,13 @@ impl Server {
             DocumentSymbolRequest::METHOD => {
                 answer::<DocumentSymbolRequest>(request, |p| self.symbols(&p.text_document.uri))
             }
+            Formatting::METHOD => answer::<Formatting>(request, |p| {
+                let (program, file) = self.program(&p.text_document.uri)?;
+                let text = &program.files[file].text;
+                let formatted = check::format(self.zeru.as_deref()?, text)?;
+                let whole = Lines::new(text).range(Span::new(0, text.len()));
+                Some(vec![TextEdit::new(whole, formatted)])
+            }),
             InlayHintRequest::METHOD => answer::<InlayHintRequest>(request, |p| {
                 let (program, file) = self.program(&p.text_document.uri)?;
                 Some(type_hints(&program, file))

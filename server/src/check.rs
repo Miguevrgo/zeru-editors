@@ -2,7 +2,7 @@
 //! whose output a thread of its own reads, so requests are never kept
 //! waiting. Each line it prints is one error.
 
-use std::io::{self, BufRead, BufReader};
+use std::io::{self, BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::mpsc::Sender;
@@ -32,6 +32,24 @@ pub struct Report {
     pub root: PathBuf,
     pub generation: u64,
     pub errors: Vec<Value>,
+}
+
+/// `text` as `zeru fmt` lays it out, or None when it cannot: a syntax
+/// error, or a compiler with no `fmt`.
+pub fn format(zeru: &Path, text: &str) -> Option<String> {
+    let mut child = Command::new(zeru)
+        .args(["fmt", "-"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .ok()?;
+    child.stdin.take()?.write_all(text.as_bytes()).ok()?;
+    let output = child.wait_with_output().ok()?;
+    output
+        .status
+        .success()
+        .then_some(String::from_utf8(output.stdout).ok()?)
 }
 
 /// Check `file` with the compiler `zeru`, from the file's directory, and
