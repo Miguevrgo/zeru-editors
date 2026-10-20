@@ -304,14 +304,16 @@ impl Program {
         if depth > 32 {
             return None;
         }
-        let at = chain.at?;
         let mut ops = chain.ops.as_slice();
+        let Some(at) = chain.at else {
+            return self.apply(Ty::Value(file, chain.ty.clone()?), ops);
+        };
         let called = ops.first() == Some(&Op::Call);
         let receiver = match &self.files[file].module.uses[at].kind {
             UseKind::Member { object, .. } => self.type_of_in(file, object, depth + 1),
             _ => None,
         };
-        let mut ty = match self.resolve_in(file, at, depth + 1) {
+        let ty = match self.resolve_in(file, at, depth + 1) {
             Some(Def::Local(f, l)) => self.local_type(f, l, depth + 1)?,
             Some(Def::Item(f, i)) => {
                 let item = &self.files[f].module.items[i];
@@ -332,14 +334,27 @@ impl Program {
             }
             Some(Def::Module(_)) | None => return None,
         };
+        self.apply(ty, ops)
+    }
+
+    /// `ty` after indexing, unwrapping, taking references and dereferencing.
+    fn apply(&self, mut ty: Ty, ops: &[Op]) -> Option<Ty> {
         for op in ops {
-            ty = match (op, ty) {
-                (Op::Index, Ty::Value(f, ty)) => Ty::Value(f, element(&ty)?),
-                (Op::Unwrap, Ty::Value(f, ty)) => {
-                    Ty::Value(f, strip(&ty).strip_suffix(['?', '!'])?.to_string())
+            let Ty::Value(f, written) = ty else {
+                return None;
+            };
+            let written = match op {
+                Op::Index => element(&written)?,
+                Op::Unwrap => strip(&written).strip_suffix(['?', '!'])?.to_string(),
+                Op::Ref => format!("&{written}"),
+                Op::RefVar => format!("&var {written}"),
+                Op::Deref => {
+                    let inner = written.trim().strip_prefix("&var ");
+                    inner.or(written.trim().strip_prefix(['&', '*']))?.to_string()
                 }
                 _ => return None,
             };
+            ty = Ty::Value(f, written);
         }
         Some(ty)
     }
@@ -642,6 +657,14 @@ fn main() {
     match r { Ok(v) => {} Err(code) => {} }
     var t: str = \"a\";
     var byte = t[0];
+    var n = 0;
+    var x = 1.5 * 2;
+    var wide = points.len() as i64;
+    var ok = n < 3 && true;
+    var neg = -x;
+    var txt = \"hi\";
+    var ch = 'c';
+    var sz = 2 * points.len();
     var u = unknown();
     u.len();
     u.x;
@@ -661,7 +684,7 @@ fn main() {
             program.describe(Def::Local(main, at))
         };
         for (name, expected) in [
-            ("a", "var a: Point"),
+            ("a", "var a: &var Point"),
             ("b", "var b: Point"),
             ("c", "var c: (&Point)"),
             ("d", "var d: Point"),
@@ -674,6 +697,14 @@ fn main() {
             ("v", "v: i32"),
             ("code", "code: i32"),
             ("byte", "var byte: u8"),
+            ("n", "var n: i32"),
+            ("x", "var x: f64"),
+            ("wide", "var wide: i64"),
+            ("ok", "var ok: bool"),
+            ("neg", "var neg: f64"),
+            ("txt", "var txt: str"),
+            ("ch", "var ch: i32"),
+            ("sz", "var sz: usize"),
         ] {
             assert_eq!(shown(name), expected);
         }

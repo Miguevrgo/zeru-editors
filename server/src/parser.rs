@@ -102,11 +102,22 @@ pub enum UseKind {
 }
 
 /// The value an expression ends in, when it is a name followed by calls,
-/// indexing, `?`/`!` or a struct literal's braces.
+/// indexing, `?`/`!` or a struct literal's braces; or else the type its
+/// source spells, as a literal's or a cast's.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Chain {
     pub at: Option<usize>,
     pub ops: Vec<Op>,
+    pub ty: Option<String>,
+}
+
+impl Chain {
+    fn typed(ty: &str) -> Self {
+        Chain {
+            ty: Some(ty.to_string()),
+            ..Default::default()
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -115,6 +126,9 @@ pub enum Op {
     Index,
     Unwrap,
     Literal,
+    Ref,
+    RefVar,
+    Deref,
 }
 
 #[derive(Debug, Default)]
@@ -852,7 +866,7 @@ impl Parser<'_> {
             self.expect("=")?;
             let value = self.expression()?;
             let entry = &mut self.module.locals[local];
-            if entry.hint.is_none() && value.at.is_some() {
+            if entry.hint.is_none() && (value.at.is_some() || value.ty.is_some()) {
                 entry.hint = Some(Hint::Value(value));
             }
             self.expect(";")
@@ -1034,14 +1048,23 @@ impl Parser<'_> {
     fn operand(&mut self) -> Option<Chain> {
         match self.kind() {
             Kind::Int | Kind::Float | Kind::Str => {
+                let ty = match self.kind() {
+                    Kind::Float => "f64",
+                    Kind::Str if self.text[self.span().start..].starts_with('"') => "str",
+                    _ => "i32",
+                };
                 self.bump();
-                return Some(Chain::default());
+                return Some(Chain::typed(ty));
             }
             Kind::Ident => return self.path_or_literal(),
             _ => {}
         }
         match self.peek() {
-            "true" | "false" | "None" => {
+            "true" | "false" => {
+                self.bump();
+                Some(Chain::typed("bool"))
+            }
+            "None" => {
                 self.bump();
                 Some(Chain::default())
             }
@@ -1051,6 +1074,7 @@ impl Parser<'_> {
                 Some(Chain {
                     at: Some(at),
                     ops: Vec::new(),
+                    ty: None,
                 })
             }
             "[" => {
@@ -1061,13 +1085,17 @@ impl Parser<'_> {
             "(" => self.grouped(),
             "-" | "!" => {
                 self.bump();
-                self.expr(Prec::Prefix)?;
-                Some(Chain::default())
+                self.expr(Prec::Prefix)
             }
             "&" | "*" => {
-                self.bump();
-                self.eat("var");
-                self.expr(Prec::Prefix)
+                let op = match self.bump().as_str() {
+                    "*" => Op::Deref,
+                    _ if self.eat("var") => Op::RefVar,
+                    _ => Op::Ref,
+                };
+                let mut chain = self.expr(Prec::Prefix)?;
+                chain.ops.push(op);
+                Some(chain)
             }
             "match" => self.match_(),
             "asm" => self.asm(),
@@ -1090,11 +1118,13 @@ impl Parser<'_> {
             return Some(Chain {
                 at: Some(last),
                 ops: vec![Op::Literal],
+                ty: None,
             });
         }
         self.explicit_call(Chain {
             at: Some(last),
             ops: Vec::new(),
+            ty: None,
         })
     }
 
@@ -1161,24 +1191,28 @@ impl Parser<'_> {
                 self.explicit_call(Chain {
                     at: Some(at),
                     ops: Vec::new(),
+                    ty: None,
                 })
             }
             "?" | "!" => {
                 left.ops.push(Op::Unwrap);
                 Some(left)
             }
-            "as" => {
-                self.ty()?;
-                Some(Chain::default())
-            }
+            "as" => Some(Chain::typed(&self.ty()?)),
             _ => {
                 let prec = precedence(&op);
-                let prec = match prec == Prec::Assignment {
-                    true => Prec::Lowest,
-                    false => prec,
-                };
-                self.expr(prec)?;
-                Some(Chain::default())
+                let right = match prec == Prec::Assignment {
+                    true => self.expr(Prec::Lowest),
+                    false => self.expr(prec),
+                }?;
+                Some(match prec {
+                    Prec::Assignment => Chain::default(),
+                    Prec::LogicalOr | Prec::LogicalAnd | Prec::Equals | Prec::LessGreater => {
+                        Chain::typed("bool")
+                    }
+                    _ if left.at.is_none() && right.at.is_some() => right,
+                    _ => left,
+                })
             }
         }
     }
