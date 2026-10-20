@@ -276,7 +276,7 @@ fn names(program: &Program, file: usize, offset: usize) -> Vec<CompletionItem> {
 
 /// The std modules `file` does not import, and the public types and
 /// functions it does not import from them, each adding its import when
-/// accepted, as rust-analyzer does.
+/// accepted.
 fn importable(program: &Program, file: usize) -> Vec<CompletionItem> {
     let Some(std) = program
         .prelude

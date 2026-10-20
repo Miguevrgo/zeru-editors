@@ -586,8 +586,7 @@ fn uri_of(path: &Path) -> Uri {
     uri.parse().expect("an encoded path is a URI")
 }
 
-/// The types the source leaves out, shown after each name as `: T`, as
-/// rust-analyzer's inlay hints.
+/// The types the source leaves out, shown after each name as `: T`.
 fn type_hints(program: &Program, file: usize) -> Vec<InlayHint> {
     let lines = Lines::new(&program.files[file].text);
     let locals = program.files[file].module.locals.iter().enumerate();
