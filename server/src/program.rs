@@ -36,8 +36,8 @@ pub enum Ty {
 }
 
 /// The file of the program that declares what the compiler builds in: `Vec`,
-/// `str`, `T?` and `T!` as `Str`, `Optional<T>` and `Result<T>`, and the
-/// print functions.
+/// `String`, `str`, `T?` and `T!` as `Str`, `Optional<T>` and `Result<T>`,
+/// and the print functions.
 pub const BUILTINS: usize = 0;
 
 /// The built-in struct a written type is, and its type arguments.

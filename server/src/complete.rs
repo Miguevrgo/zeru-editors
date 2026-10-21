@@ -41,7 +41,7 @@ pub fn completion(
         });
         qualifier
             .and_then(|at| program.resolve(file, at))
-            .map(|def| path_items(program, def))
+            .map(|def| path_items(program, file, def))
             .unwrap_or_default()
     } else if head.ends_with('.') && !head.ends_with("..") {
         let object = uses.iter().find_map(|used| match &used.kind {
@@ -50,7 +50,7 @@ pub fn completion(
         });
         object
             .and_then(|object| program.type_of(file, object))
-            .map(|ty| members(program, ty))
+            .map(|ty| members(program, file, ty))
             .unwrap_or_default()
     } else if in_type {
         let mut found = names(program, file, offset);
@@ -133,9 +133,9 @@ fn entry(label: &str, kind: CompletionItemKind, group: u8) -> CompletionItem {
     }
 }
 
-/// The completion of what `def` names, as rust-analyzer gives it: its
-/// parameters or type beside the label, its signature and docs, and for a
-/// function a snippet with a placeholder per parameter.
+/// The completion of what `def` names: its parameters or type beside the
+/// label, its signature and docs, and for a function a snippet with a
+/// placeholder per parameter.
 fn declared(program: &Program, def: Def, group: u8) -> CompletionItem {
     let (label, kind, params, ty) = match def {
         Def::Item(f, at) => {
@@ -230,8 +230,10 @@ fn items_of(
         .collect()
 }
 
-/// The fields and methods of a value, or the functions of a type.
-fn members(program: &Program, ty: Ty) -> Vec<CompletionItem> {
+/// The fields and methods of a value, or the functions of a type, that
+/// code in `file` may call: a method of another module only when public,
+/// and never `drop`, which runs by itself.
+fn members(program: &Program, file: usize, ty: Ty) -> Vec<CompletionItem> {
     let (f, owner, on_value) = match ty {
         Ty::Static(f, owner) => (f, owner, false),
         Ty::Value(f, ty) => match program.struct_of(f, &ty) {
@@ -239,18 +241,22 @@ fn members(program: &Program, ty: Ty) -> Vec<CompletionItem> {
             None => return Vec::new(),
         },
     };
+    let callable =
+        |member: &Item| (member.is_pub || f == file || f == BUILTINS) && member.name != "drop";
     items_of(program, f, Some(owner), 1, |member| match on_value {
-        true => member.kind == ItemKind::Field || member.has_self,
-        false => member.kind == ItemKind::Method && !member.has_self,
+        true => member.kind == ItemKind::Field || member.has_self && callable(member),
+        false => member.kind == ItemKind::Method && !member.has_self && callable(member),
     })
 }
 
 /// The variants of an enum, the functions of a struct, or the public items
 /// of a module.
-fn path_items(program: &Program, def: Def) -> Vec<CompletionItem> {
+fn path_items(program: &Program, file: usize, def: Def) -> Vec<CompletionItem> {
     match def {
         Def::Module(f) => items_of(program, f, None, 1, |item| item.is_pub),
-        Def::Item(f, owner) => items_of(program, f, Some(owner), 1, |item| !item.has_self),
+        Def::Item(f, owner) => items_of(program, f, Some(owner), 1, |item| {
+            !item.has_self && (item.is_pub || f == file || f == BUILTINS)
+        }),
         Def::Local(..) => Vec::new(),
     }
 }
