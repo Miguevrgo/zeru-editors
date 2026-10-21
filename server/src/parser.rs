@@ -367,15 +367,19 @@ impl Parser<'_> {
     }
 
     /// The `//` lines right above the line `start` is on, up to a blank
-    /// line or a rule of dashes or other symbols.
+    /// line or a rule of three or more dashes or other symbols.
     fn docs(&self, start: usize) -> String {
         let above = &self.text[..self.text[..start].rfind('\n').unwrap_or_default()];
+        let rule = |line: &str| {
+            let line = line.trim();
+            line.len() >= 3 && !line.starts_with('`') && line.chars().all(|c| line.starts_with(c))
+        };
         let mut lines: Vec<&str> = above
             .lines()
             .rev()
             .map_while(|line| line.trim().strip_prefix("//"))
             .map(|line| line.trim_start_matches('/'))
-            .take_while(|line| line.trim().is_empty() || line.contains(char::is_alphanumeric))
+            .take_while(|line| !rule(line))
             .map(|line| line.strip_prefix(' ').unwrap_or(line))
             .collect();
         lines.reverse();

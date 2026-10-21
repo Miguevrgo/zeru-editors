@@ -466,12 +466,13 @@ fn main() {
             let (_, defs) = program.meanings(main, at(needle)).unwrap();
             program.markdown(defs[0])
         };
-        assert_eq!(
-            hover("m.get"),
-            "```zeru\nHashMap\npub fn get(self, key: K) (&V)?\n```\n\n---\n\nThe value under `key`, if any; `.copy()` gives a copy of it."
-        );
-        assert!(hover("v.push").contains("Appends `value` at the end"));
-        assert!(hover("println").contains("Like print, then a newline"));
+        let get = hover("m.get");
+        assert!(get.starts_with(
+            "```zeru\nHashMap\npub fn get(self, key: K) (&V)?\n```\n\n---\n\nReturns a reference"
+        ));
+        assert!(get.ends_with("println(\"{}\", names.get(2).is_none()); // true\n```"));
+        assert!(hover("v.push").contains("Adds `value` at the end"));
+        assert!(hover("println").contains("then a line break"));
         assert!(hover("exit").contains("End the process"));
 
         let found = completion(&program, main, at("v."), true);

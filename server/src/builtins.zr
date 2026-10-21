@@ -1,129 +1,479 @@
-// A growable array that owns its elements: assigning or passing it moves it.
+// A list of values of one type that grows on the heap.
+//
+// A Vec owns its elements: assigning or passing it moves it, and `copy`
+// makes a second one. `v[i]` reads or writes an element and panics past
+// the end; `for x in v` walks the elements and `for i, x in v` their
+// indexes too.
+//
+// # Examples
+//
+// ```zeru
+// var v: Vec<i32> = [3, 1, 2];
+// v.push(5);
+// v[0] = 4;
+// for i, x in v {
+//     print("{}:{} ", i, x);
+// }
+// println(""); // 0:4 1:1 2:2 3:5
+// ```
 pub struct Vec<T> {
-    // An empty Vec; it allocates on the first push.
+    // Returns an empty Vec.
+    //
+    // It allocates nothing until the first push. A list literal makes one
+    // with elements: `var v: Vec<i32> = [1, 2, 3];`.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var names: Vec<str> = Vec.new();
+    // println("{}", names.len()); // 0
+    // ```
     fn new() Vec<T> {}
 
-    // An empty Vec with room for `capacity` elements.
+    // Returns an empty Vec with room for `capacity` elements.
+    //
+    // Pushing up to `capacity` elements then allocates nothing more, which
+    // saves time when the final size is known.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var squares: Vec<i32> = Vec.with_capacity(10);
+    // for i in 0..10 {
+    //     squares.push(i * i);
+    // }
+    // println("{} {}", squares.len(), squares.capacity()); // 10 10
+    // ```
     fn with_capacity(capacity: usize) Vec<T> {}
 
-    // The number of elements.
+    // Returns the number of elements.
     fn len(self) usize {}
 
-    // How many elements fit before the buffer grows.
+    // Returns how many elements fit before the Vec has to grow.
     fn capacity(self) usize {}
 
-    // Whether it has no elements.
+    // Returns whether the Vec has no elements.
     fn is_empty(self) bool {}
 
-    // Appends `value` at the end, growing the buffer when it is full.
+    // Adds `value` at the end.
+    //
+    // When the Vec is full it moves to a buffer twice as big, so pushing
+    // takes O(1) time on average.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var v: Vec<i32> = [1, 2];
+    // v.push(3);
+    // println("{} {}", v.len(), v[2]); // 3 3
+    // ```
     fn push(var self, value: T) {}
 
-    // Removes the last element and returns it, or None when it is empty.
+    // Removes the last element and returns it, or None when the Vec is empty.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var stack: Vec<i32> = [1, 2];
+    // println("{}", stack.pop().unwrap()); // 2
+    // println("{}", stack.pop().unwrap()); // 1
+    // println("{}", stack.pop().is_none()); // true
+    // ```
     fn pop(var self) T? {}
 
-    // Inserts `value` at `index`, shifting the rest up; panics past the end.
+    // Inserts `value` at `index`, moving the elements after it one place up.
+    //
+    // Takes O(n) time; `push` adds at the end in O(1). An `index` equal to
+    // the length adds at the end.
+    //
+    // # Panics
+    //
+    // When `index` is greater than the length.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var v: Vec<i32> = [1, 3];
+    // v.insert(1, 2);
+    // println("{} {} {}", v[0], v[1], v[2]); // 1 2 3
+    // ```
     fn insert(var self, index: usize, value: T) {}
 
-    // Removes the element at `index` and returns it, shifting the rest down; panics out of bounds.
+    // Removes the element at `index` and returns it, moving the elements
+    // after it one place down.
+    //
+    // Takes O(n) time; `pop` removes the last element in O(1).
+    //
+    // # Panics
+    //
+    // When `index` is past the end.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var v: Vec<i32> = [10, 20, 30];
+    // println("{}", v.remove(0)); // 10
+    // println("{} {}", v.len(), v[0]); // 2 20
+    // ```
     fn remove(var self, index: usize) T {}
 
-    // A reference to the element at `index`, or None out of bounds; `.copy()` gives a `T?`.
+    // Returns a reference to the element at `index`, or None past the end.
+    //
+    // Unlike `v[index]` it does not panic. `*` reads the element through
+    // the reference; `.copy()` on the result gives a `T?` holding a copy.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var v: Vec<i32> = [7, 8];
+    // println("{}", *v.get(1).unwrap()); // 8
+    // println("{}", v.get(2).is_none()); // true
+    // ```
     fn get(self, index: usize) (&T)? {}
 
-    // Removes every element, keeping the capacity.
+    // Removes every element, keeping the memory for new ones.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var v: Vec<i32> = [1, 2, 3];
+    // v.clear();
+    // println("{} {}", v.is_empty(), v.capacity() >= 3); // true true
+    // ```
     fn clear(var self) {}
 
-    // Makes room for `additional` more elements.
+    // Makes room for at least `additional` more elements, so pushing them
+    // allocates nothing more.
     fn reserve(var self, additional: usize) {}
 
-    // Shrinks the capacity down to the length.
+    // Gives back the memory not in use, so the capacity equals the length.
     fn shrink_to_fit(var self) {}
 
-    // A deep copy, so the original stays usable; O(n).
+    // Returns a second Vec holding a copy of every element.
+    //
+    // Takes O(n) time. Use it when both Vecs must stay usable, since
+    // assigning a Vec moves it.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var a: Vec<i32> = [1, 2];
+    // var b = a.copy();
+    // b.push(3);
+    // println("{} {}", a.len(), b.len()); // 2 3
+    // ```
     fn copy(self) Vec<T> {}
 
-    // Sorts it in ascending order; for numbers and other types `<` compares.
+    // Sorts the elements from smallest to largest.
+    //
+    // For numbers. Takes O(n log n) time and no extra memory; equal
+    // elements may change order.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var v: Vec<i32> = [5, -1, 3];
+    // v.sort();
+    // println("{} {} {}", v[0], v[1], v[2]); // -1 3 5
+    // ```
     fn sort(var self) {}
 
-    // Exchanges the elements at `i` and `j`; panics out of bounds.
+    // Exchanges the elements at `i` and `j`.
+    //
+    // # Panics
+    //
+    // When `i` or `j` is past the end.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var v: Vec<str> = ["a", "b", "c"];
+    // v.swap(0, 2);
+    // println("{} {}", v[0], v[2]); // c a
+    // ```
     fn swap(var self, i: usize, j: usize) {}
 
-    // Whether an element equals `value`.
+    // Returns whether an element equals `value`.
+    //
+    // Takes O(n) time, looking at each element in turn.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var primes: Vec<i32> = [2, 3, 5, 7];
+    // println("{} {}", primes.contains(5), primes.contains(4)); // true false
+    // ```
     fn contains(self, value: T) bool {}
 
-    // The elements added up; 0 when there are none.
+    // Returns the elements added up, or 0 when there are none.
+    //
+    // For numbers.
+    //
+    // # Panics
+    //
+    // When an integer total does not fit its type.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var prices: Vec<f64> = [1.5, 2.25];
+    // println("{}", prices.sum()); // 3.75
+    // ```
     fn sum(self) T {}
 
-    // The smallest element, or None when there are none.
+    // Returns the smallest element, or None when there are none.
+    //
+    // For numbers.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var v: Vec<i32> = [4, -2, 9];
+    // println("{}", v.min().unwrap()); // -2
+    // ```
     fn min(self) T? {}
 
-    // The largest element, or None when there are none.
+    // Returns the largest element, or None when there are none.
+    //
+    // For numbers.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var v: Vec<i32> = [4, -2, 9];
+    // println("{}", v.max().unwrap()); // 9
+    // ```
     fn max(self) T? {}
 }
 
-// A string: a slice of bytes; a character outside ASCII takes several, as "é" takes 2.
+// Text, as a read-only slice of bytes.
+//
+// A string literal, `"..."` with escapes or `` `...` `` taken as written,
+// is a `str`. Text is UTF-8, so a character outside ASCII takes several
+// bytes: `"é"` takes 2. `s[i]` reads the byte at `i`, `for b in s` walks
+// the bytes, and `==` compares the bytes.
+//
+// # Examples
+//
+// ```zeru
+// var s = "zeru";
+// println("{} {} {}", s.len(), s[0] == 'z', s == "zeru"); // 4 true true
+// println("{}", "é".len()); // 2
+// ```
 struct Str {
-    // The length in bytes.
+    // Returns the length in bytes.
     fn len(self) usize {}
 
-    // The parts between each `sep`, sharing its memory; "a,,b".split(",") gives "a", "" and "b".
+    // Returns the parts of the text between each `sep`.
+    //
+    // The parts share the memory of the text, nothing is copied. Two `sep`
+    // in a row give an empty part between them, and an empty `sep` gives
+    // the whole text as the only part.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var parts = "a,b,,c".split(",");
+    // println("{} {} {}", parts.len(), parts[1], parts[2].len()); // 4 b 0
+    // ```
     fn split(self, sep: str) Vec<str> {}
 
-    // The lines, without their "\n" or "\r\n"; a closing "\n" starts no empty line.
+    // Returns the lines of the text, without their `"\n"` or `"\r\n"`.
+    //
+    // A final `"\n"` adds no empty line at the end.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var lines = "first\r\nsecond\n".lines();
+    // println("{} {}", lines.len(), lines[1]); // 2 second
+    // ```
     fn lines(self) Vec<str> {}
 
-    // Without the spaces, tabs and line breaks at either end: "  hi \n".trim() is "hi".
+    // Returns the text without the spaces, tabs and line breaks at either
+    // end.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // println("[{}]", "  hi there \n".trim()); // [hi there]
+    // ```
     fn trim(self) str {}
 
-    // Whether it begins with `prefix`.
+    // Returns whether the text begins with `prefix`.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // println("{}", "zeru build".starts_with("zeru")); // true
+    // ```
     fn starts_with(self, prefix: str) bool {}
 
-    // Whether it ends with `suffix`.
+    // Returns whether the text ends with `suffix`.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // println("{}", "main.zr".ends_with(".zr")); // true
+    // ```
     fn ends_with(self, suffix: str) bool {}
 
-    // The integer it spells, as "-42"; error 22 when it spells none, 34 when it does not fit.
+    // Returns the integer the text spells, as `"42"`, `"-7"` or `"+3"`.
+    //
+    // The whole text must be digits after an optional sign, with no spaces;
+    // `trim` removes those first.
+    //
+    // # Errors
+    //
+    // 22 (EINVAL) when the text is not an integer, 34 (ERANGE) when it
+    // does not fit an `i64`.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // println("{}", "-42".parse_int().unwrap()); // -42
+    // println("{}", "4x".parse_int().unwrap_err()); // 22
+    // println("{}", "99999999999999999999".parse_int().unwrap_err()); // 34
+    // ```
     fn parse_int(self) i64! {}
 
-    // The number it spells, as "3.5" or "1e-3"; error 22 when it spells none.
+    // Returns the number the text spells, as `"3.5"`, `"-2"` or `"1e-3"`.
+    //
+    // Exact up to 15 significant digits; longer numbers may be off in the
+    // last digit.
+    //
+    // # Errors
+    //
+    // 22 (EINVAL) when the text is not a number.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // println("{}", "3.25".parse_float().unwrap()); // 3.25
+    // println("{}", "1e-3".parse_float().unwrap()); // 0.001
+    // println("{}", "pi".parse_float().unwrap_err()); // 22
+    // ```
     fn parse_float(self) f64! {}
 }
 
-// `T?`: a value, or None.
+// `T?`: a value of type `T`, or None.
+//
+// A function returning `T?` gives a `T` with `return value;` and nothing
+// with `return None;`. `match` takes both cases apart, and `x?` inside such
+// a function returns None at once when `x` is None.
+//
+// # Examples
+//
+// ```zeru
+// fn first_even(v: Vec<i32>) i32? {
+//     for x in v {
+//         if x % 2 == 0 {
+//             return x;
+//         }
+//     }
+//     return None;
+// }
+//
+// fn main() {
+//     match first_even([3, 8, 5]) {
+//         Some(x) => println("{}", x), // 8
+//         None => println("none"),
+//     }
+//     println("{}", first_even([1]).is_none()); // true
+// }
+// ```
 struct Optional<T> {
-    // Whether it holds a value.
+    // Returns whether it holds a value.
     fn is_some(self) bool {}
 
-    // Whether it is None.
+    // Returns whether it is None.
     fn is_none(self) bool {}
 
-    // The value inside; panics on None.
+    // Returns the value inside.
+    //
+    // # Panics
+    //
+    // When it is None.
     fn unwrap(self) T {}
 }
 
-// `T!`: a value, or an i32 error code.
+// `T!`: a value of type `T`, or an `i32` error code.
+//
+// A function returning `T!` gives a value with `return Ok(value);` and an
+// error with `return Err(code);`. `match` takes both cases apart, and `x!`
+// inside such a function returns the error at once when `x` holds one.
+//
+// # Examples
+//
+// ```zeru
+// fn half(n: i32) i32! {
+//     if n % 2 != 0 {
+//         return Err(22);
+//     }
+//     return Ok(n / 2);
+// }
+//
+// fn quarter(n: i32) i32! {
+//     return half(half(n)!);
+// }
+//
+// fn main() {
+//     println("{}", quarter(12).unwrap()); // 3
+//     match quarter(6) {
+//         Ok(n) => println("{}", n),
+//         Err(code) => println("error {}", code), // error 22
+//     }
+// }
+// ```
 struct Result<T> {
-    // Whether it holds a value.
+    // Returns whether it holds a value.
     fn is_ok(self) bool {}
 
-    // Whether it holds an error code.
+    // Returns whether it holds an error code.
     fn is_err(self) bool {}
 
-    // The value inside; panics on an error.
+    // Returns the value inside.
+    //
+    // # Panics
+    //
+    // When it holds an error code.
     fn unwrap(self) T {}
 
-    // The error code; panics on a value.
+    // Returns the error code inside.
+    //
+    // # Panics
+    //
+    // When it holds a value.
     fn unwrap_err(self) i32 {}
 }
 
-// Writes `format` to stdout, buffered, each `{}` replaced by the next value
-// (a number, a bool or a str) and `{{}}` by braces.
+// Writes `format` to stdout, each `{}` replaced by the next value.
+//
+// Values are numbers, bools or `str`; `{{}}` writes `{}` itself. The
+// output waits in a buffer that `println` and the end of the program
+// flush.
+//
+// # Examples
+//
+// ```zeru
+// print("{} + {} = ", 2, 3);
+// println("{}", 5); // 2 + 3 = 5
+// ```
 pub fn print(format: str) {}
 
-// Like print, then a newline, and flushes stdout.
+// Writes `format` to stdout as `print` does, then a line break, and
+// flushes.
+//
+// # Examples
+//
+// ```zeru
+// println("{} is {} years old", "Ann", 30); // Ann is 30 years old
+// println("{{}} stays"); // {} stays
+// ```
 pub fn println(format: str) {}
 
-// Like print, to stderr.
+// Writes `format` to stderr as `print` does.
 pub fn eprint(format: str) {}
 
-// Like println, to stderr.
+// Writes `format` to stderr as `println` does, for errors and diagnostics.
 pub fn eprintln(format: str) {}
