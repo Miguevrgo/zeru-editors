@@ -61,7 +61,7 @@ pub struct Vec<T> {
     fn max(self) T? {}
 }
 
-// A string: a slice of ASCII bytes.
+// A string: a slice of bytes; a character outside ASCII takes several, as "é" takes 2.
 struct Str {
     // The length in bytes.
     fn len(self) usize {}

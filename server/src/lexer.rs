@@ -113,9 +113,6 @@ pub fn lex(text: &str) -> Vec<Token> {
                     break;
                 }
             }
-            if kind == Kind::Str && !text[start..at].is_ascii() {
-                kind = Kind::Illegal("Non-ASCII character in string".into());
-            }
             kind
         } else if c == b'\'' {
             let skip = match rest[1..].starts_with('\\') {
