@@ -233,6 +233,24 @@ pub struct Vec<T> {
     // ```
     fn min(self) T? {}
 
+    // Returns the bytes of a `Vec<u8>` as a `str`, to print, compare or pass
+    // them as text.
+    //
+    // The `str` shares the Vec's memory, so it goes stale when the Vec
+    // grows or is dropped; take it again after changing the Vec.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var name: Vec<u8> = Vec.new();
+    // for b in "zeru" {
+    //     name.push(b);
+    // }
+    // name.push('!');
+    // println("{}", name.as_str()); // zeru!
+    // ```
+    fn as_str(self) str {}
+
     // Returns the largest element, or None when there are none.
     //
     // For numbers.
