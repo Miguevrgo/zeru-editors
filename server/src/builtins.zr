@@ -417,8 +417,8 @@ struct Str {
 
     // Returns the number the text spells, as `"3.5"`, `"-2"` or `"1e-3"`.
     //
-    // Exact up to 15 significant digits; longer numbers may be off in the
-    // last digit.
+    // Rounded to the nearest f64, so a number printed and read back gives
+    // the same value.
     //
     // # Errors
     //
