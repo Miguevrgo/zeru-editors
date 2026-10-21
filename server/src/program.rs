@@ -176,6 +176,20 @@ impl Program {
         Some(Def::Item(file, found))
     }
 
+    /// The member `name` of `owner`: its method when `called`, else its
+    /// field, as a struct may have both.
+    fn member(&self, file: usize, owner: usize, name: &str, called: bool) -> Option<Def> {
+        let items = &self.files[file].module.items;
+        let named: Vec<usize> = self
+            .children(file, owner)
+            .filter(|&at| items[at].name == name)
+            .collect();
+        let wanted = named
+            .iter()
+            .find(|&&at| (items[at].kind == ItemKind::Method) == called);
+        Some(Def::Item(file, *wanted.or(named.first())?))
+    }
+
     /// The innermost scope of `file` around `offset`.
     pub fn scope_at(&self, file: usize, offset: usize) -> Option<usize> {
         let scopes = &self.files[file].module.scopes;
@@ -274,13 +288,18 @@ impl Program {
         match &used.kind {
             UseKind::Name => self.lookup(file, name, used.span.start, false),
             UseKind::Type => self.lookup(file, name, used.span.start, true),
-            UseKind::Member { object, .. } => match self.type_of_in(file, object, depth + 1)? {
-                Ty::Value(f, ty) => {
-                    let (f, owner) = self.named_type(f, &ty)?;
-                    self.child(f, owner, name)
+            UseKind::Member { object, .. } => {
+                let called = self.files[file].text[used.span.end..]
+                    .trim_start()
+                    .starts_with('(');
+                match self.type_of_in(file, object, depth + 1)? {
+                    Ty::Value(f, ty) => {
+                        let (f, owner) = self.named_type(f, &ty)?;
+                        self.member(f, owner, name, called)
+                    }
+                    Ty::Static(f, owner) => self.member(f, owner, name, called),
                 }
-                Ty::Static(f, owner) => self.child(f, owner, name),
-            },
+            }
             UseKind::Path { qualifier, .. } => {
                 match self.resolve_in(file, *qualifier, depth + 1)? {
                     Def::Module(target) => Some(Def::Item(target, self.top_item(target, name)?)),
