@@ -1262,10 +1262,7 @@ impl Parser<'_> {
         }
         self.expression()?;
         if self.eat(";") {
-            if *self.kind() != Kind::Int || precedence(self.nth(1)) > Prec::Lowest {
-                return self.error_here("Array repeat count must be an integer literal");
-            }
-            self.bump();
+            self.expression()?;
             return self.expect("]");
         }
         match self.eat(",") {
