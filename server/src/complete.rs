@@ -529,16 +529,11 @@ fn main() {
         assert!(modules.contains(&"fs".into()) && modules.contains(&"collections".into()));
         assert!(!modules.contains(&"builtin".into()));
         assert!(labels("import std.collections.\n", 23).contains(&"hashmap".into()));
-        let source = "import std.fs::{};\nfn main() { fs::open(\"p\", 0, 0); }\n";
-        assert!(labels(source, 16).contains(&"read_file".into()));
-        let members = labels(source, source.find("fs::").unwrap() + 4);
-        let open = members.iter().position(|label| label == "open").unwrap();
-        assert!(
-            open < members
-                .iter()
-                .position(|label| label == "O_RDONLY")
-                .unwrap()
-        );
+        assert!(labels("import std.fs::{};\n", 16).contains(&"read_file".into()));
+        let source = "import std.math;\nfn main() { math::min(1, 2); }\n";
+        let members = labels(source, source.find("math::").unwrap() + 6);
+        let min = members.iter().position(|label| label == "min").unwrap();
+        assert!(min < members.iter().position(|label| label == "PI").unwrap());
     }
 
     #[test]

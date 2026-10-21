@@ -617,6 +617,7 @@ impl Parser<'_> {
             };
             let ty = match body_starts.contains(&p.peek()) {
                 true => None,
+                false if p.eat("!") => Some("!".to_string()),
                 false => Some(p.ty()?),
             };
             let header = p.slice(start);
