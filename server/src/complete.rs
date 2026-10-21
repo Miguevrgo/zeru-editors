@@ -29,6 +29,8 @@ pub fn completion(
         return Vec::new();
     }
     let line = &head[head.rfind('\n').map_or(0, |at| at + 1)..];
+    let types = &program.files[file].module.types;
+    let in_type = types.iter().any(|ty| ty.start <= start && start <= ty.end);
     let uses = &program.files[file].module.uses;
     let mut found = if let Some(found) = import_names(program, file, line) {
         found
@@ -50,12 +52,7 @@ pub fn completion(
             .and_then(|object| program.type_of(file, object))
             .map(|ty| members(program, ty))
             .unwrap_or_default()
-    } else if program.files[file]
-        .module
-        .types
-        .iter()
-        .any(|ty| ty.start <= start && start <= ty.end)
-    {
+    } else if in_type {
         let mut found = names(program, file, offset);
         found.retain(|item| match item.kind {
             Some(CompletionItemKind::KEYWORD) => PRIMITIVES.contains(&item.label.as_str()),
@@ -71,9 +68,15 @@ pub fn completion(
     } else {
         names(program, file, offset)
     };
-    for item in found.iter_mut().filter(|_| !snippets) {
-        if item.insert_text_format.take().is_some() {
-            item.insert_text = Some(format!("{}(", item.label));
+    for item in &mut found {
+        let generic = item.kind == Some(CompletionItemKind::STRUCT);
+        if generic && !in_type {
+            item.insert_text = None;
+            item.insert_text_format = None;
+        }
+        if !snippets && item.insert_text_format.take().is_some() {
+            let open = if generic { "<" } else { "(" };
+            item.insert_text = Some(format!("{}{open}", item.label));
         }
     }
     found
@@ -194,6 +197,18 @@ fn declared(program: &Program, def: Def, group: u8) -> CompletionItem {
         let holes: Vec<String> = holes.collect();
         let end = if holes.is_empty() { "$0" } else { "" };
         item.insert_text = Some(format!("{label}({}){end}", holes.join(", ")));
+        item.insert_text_format = Some(InsertTextFormat::SNIPPET);
+    }
+    if let Def::Item(f, at) = def
+        && kind == CompletionItemKind::STRUCT
+        && !program.files[f].module.items[at].type_params.is_empty()
+    {
+        let params = &program.files[f].module.items[at].type_params;
+        let holes = params
+            .iter()
+            .enumerate()
+            .map(|(at, name)| format!("${{{}:{name}}}", at + 1));
+        item.insert_text = Some(format!("{label}<{}>", holes.collect::<Vec<_>>().join(", ")));
         item.insert_text_format = Some(InsertTextFormat::SNIPPET);
     }
     item
@@ -556,6 +571,8 @@ fn main() {
         let types = complete("import std.fs;\nfn main() {\n    var m: Ha\n}\n", ": Ha");
         let labels: Vec<&str> = types.iter().map(|item| item.label.as_str()).collect();
         assert!(labels.contains(&"Vec") && labels.contains(&"i64"));
+        let map = types.iter().find(|item| item.label == "HashMap").unwrap();
+        assert_eq!(map.insert_text.as_deref(), Some("HashMap<${1:K}, ${2:V}>"));
         assert!(!labels.contains(&"main") && !labels.contains(&"println"));
         assert_eq!(
             edit(&types, "HashMap"),

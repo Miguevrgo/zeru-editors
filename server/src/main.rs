@@ -41,7 +41,7 @@ use serde_json::{Value, json};
 
 use lexer::Span;
 use parser::{Hint, ItemKind, LocalKind};
-use program::{BUILTINS, Program, Ty};
+use program::{BUILTINS, Def, Program, Ty};
 
 /// What the main loop answers: a message from the editor, which closing
 /// its end turns into `exit`, or a finished check.
@@ -215,7 +215,7 @@ impl Server {
             }),
             InlayHintRequest::METHOD => answer::<InlayHintRequest>(request, |p| {
                 let (program, file) = self.program(&p.text_document.uri)?;
-                Some(type_hints(&program, file))
+                Some(hints(&program, file))
             }),
             Completion::METHOD => answer::<Completion>(request, |p| {
                 let (program, file, offset) = self.locate(&p.text_document_position)?;
@@ -586,29 +586,55 @@ fn uri_of(path: &Path) -> Uri {
     uri.parse().expect("an encoded path is a URI")
 }
 
-/// The types the source leaves out, shown after each name as `: T`.
-fn type_hints(program: &Program, file: usize) -> Vec<InlayHint> {
-    let lines = Lines::new(&program.files[file].text);
+/// The types the source leaves out, shown after each name as `: T`, and
+/// the parameter each argument of a call goes to, shown before it as
+/// `name:` unless the argument is a name already saying so.
+fn hints(program: &Program, file: usize) -> Vec<InlayHint> {
+    let text = &program.files[file].text;
+    let lines = Lines::new(text);
+    let hint = |at: usize, label: String, kind| InlayHint {
+        position: lines.position(at),
+        label: InlayHintLabel::String(label),
+        kind: Some(kind),
+        text_edits: None,
+        tooltip: None,
+        padding_left: None,
+        padding_right: (kind == InlayHintKind::PARAMETER).then_some(true),
+        data: None,
+    };
+    let mut found = Vec::new();
+    for (callee, args) in &program.files[file].module.calls {
+        let Some(Def::Item(f, at)) = program.resolve(file, *callee) else {
+            continue;
+        };
+        let function = &program.files[f].module.items[at];
+        let prints = ["print", "println", "eprint", "eprintln"];
+        if !matches!(function.kind, ItemKind::Fn | ItemKind::Method)
+            || f == BUILTINS && prints.contains(&function.name.as_str())
+        {
+            continue;
+        }
+        for (param, &arg) in function.params.iter().zip(args) {
+            let name = param.split(':').next().unwrap_or_default();
+            let name = name.trim().trim_start_matches("var ").trim();
+            let mut written = text[arg..].split(|c: char| !c.is_alphanumeric() && c != '_');
+            if written.next() != Some(name) {
+                found.push(hint(arg, format!("{name}:"), InlayHintKind::PARAMETER));
+            }
+        }
+    }
     let locals = program.files[file].module.locals.iter().enumerate();
-    locals
+    let types = locals
         .filter(|(_, local)| matches!(local.kind, LocalKind::Var | LocalKind::Binding))
         .filter(|(_, local)| !matches!(local.hint, Some(Hint::Written(_))))
         .filter_map(|(at, local)| {
             let Some(Ty::Value(_, ty)) = program.local_type(file, at, 0) else {
                 return None;
             };
-            Some(InlayHint {
-                position: lines.position(local.span.end),
-                label: InlayHintLabel::String(format!(": {ty}")),
-                kind: Some(InlayHintKind::TYPE),
-                text_edits: None,
-                tooltip: None,
-                padding_left: None,
-                padding_right: None,
-                data: None,
-            })
-        })
-        .collect()
+            Some(hint(local.span.end, format!(": {ty}"), InlayHintKind::TYPE))
+        });
+    found.extend(types);
+    found
 }
 
 /// A file's text and where its lines start, to turn byte offsets into LSP
@@ -656,5 +682,34 @@ impl<'t> Lines<'t> {
 
     pub fn range(&self, span: Span) -> Range {
         Range::new(self.position(span.start), self.position(span.end))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::{Path, PathBuf};
+
+    use super::*;
+
+    #[test]
+    fn a_hint_names_each_argument_unless_it_says_so() {
+        let source = "fn area(w: i32, h: i32) i32 { return w * h; }
+fn main() {
+    var h = 2;
+    area(3, h);
+}
+";
+        let root = PathBuf::from("/p/main.zr");
+        let read = |_: &Path| Some(source.to_string());
+        let program = Program::load(std::slice::from_ref(&root), None, read);
+        let main = program.find(&root).unwrap();
+        let labels: Vec<String> = hints(&program, main)
+            .into_iter()
+            .map(|hint| match hint.label {
+                InlayHintLabel::String(label) => label,
+                _ => String::new(),
+            })
+            .collect();
+        assert_eq!(labels, ["w:", ": i32"]);
     }
 }

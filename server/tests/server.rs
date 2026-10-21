@@ -228,7 +228,15 @@ fn answers_and_checks_without_blocking() {
             )
         })
         .collect();
-    assert_eq!(hints, [(17, 9, ": Point"), (18, 9, ": Point")]);
+    assert_eq!(
+        hints,
+        [
+            (20, 23, "n:"),
+            (20, 11, "value:"),
+            (17, 9, ": Point"),
+            (18, 9, ": Point")
+        ]
+    );
 
     let formatted = server.request(
         "textDocument/formatting",

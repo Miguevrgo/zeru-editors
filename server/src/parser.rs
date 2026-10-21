@@ -134,12 +134,12 @@ pub enum Op {
 #[derive(Debug, Default)]
 pub struct Module {
     pub tokens: Vec<Token>,
-    /// Where types are written, each from the end of the token before.
     pub types: Vec<Span>,
     pub items: Vec<Item>,
     pub locals: Vec<Local>,
     pub scopes: Vec<Scope>,
     pub uses: Vec<Use>,
+    pub calls: Vec<(usize, Vec<usize>)>,
     pub imports: Vec<Import>,
     pub errors: Vec<(Span, String)>,
 }
@@ -1180,7 +1180,16 @@ impl Parser<'_> {
                 Some(left)
             }
             "(" => {
-                self.delimited(|p| p.list(")", |p| p.expression().map(drop)))?;
+                let mut args = Vec::new();
+                self.delimited(|p| {
+                    p.list(")", |p| {
+                        args.push(p.span().start);
+                        p.expression().map(drop)
+                    })
+                })?;
+                if let (Some(callee), true) = (left.at, left.ops.is_empty()) {
+                    self.module.calls.push((callee, args));
+                }
                 left.ops.push(Op::Call);
                 Some(left)
             }
