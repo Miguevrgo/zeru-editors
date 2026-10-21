@@ -124,6 +124,7 @@ impl Chain {
 pub enum Op {
     Call,
     Index,
+    Slice,
     Unwrap,
     Literal,
     Ref,
@@ -1179,9 +1180,21 @@ impl Parser<'_> {
         let op = self.bump();
         match op.as_str() {
             "[" => {
-                self.delimited(Self::expression)?;
+                let mut op = Op::Index;
+                self.delimited(|p| {
+                    if !p.at("..") {
+                        p.expression()?;
+                    }
+                    if p.eat("..") {
+                        op = Op::Slice;
+                        if !p.at("]") {
+                            p.expression()?;
+                        }
+                    }
+                    Some(())
+                })?;
                 self.expect("]")?;
-                left.ops.push(Op::Index);
+                left.ops.push(op);
                 Some(left)
             }
             "(" => {

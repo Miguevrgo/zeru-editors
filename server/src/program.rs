@@ -350,6 +350,10 @@ impl Program {
             };
             let written = match op {
                 Op::Index => element(&written)?,
+                Op::Slice => match strip(&written) {
+                    "str" | "String" => "str".to_string(),
+                    _ => format!("&[{}]", element(&written)?),
+                },
                 Op::Unwrap => strip(&written).strip_suffix(['?', '!'])?.to_string(),
                 Op::Ref => format!("&{written}"),
                 Op::RefVar => format!("&var {written}"),
@@ -685,6 +689,8 @@ fn main() {
     var txt = \"hi\";
     var ch = 'c';
     var sz = 2 * points.len();
+    var part = txt[1..];
+    var few = points[..1];
     var u = unknown();
     u.len();
     u.x;
@@ -727,6 +733,8 @@ fn main() {
             ("txt", "var txt: str"),
             ("ch", "var ch: i32"),
             ("sz", "var sz: usize"),
+            ("part", "var part: str"),
+            ("few", "var few: &[Point]"),
         ] {
             assert_eq!(shown(name), expected);
         }
