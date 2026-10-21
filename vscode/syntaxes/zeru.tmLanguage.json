@@ -1,15 +1,22 @@
 {
     "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
     "name": "Zeru",
+    "scopeName": "source.zeru",
     "patterns": [
         {
-            "include": "#keywords"
+            "include": "#comments"
         },
         {
             "include": "#strings"
         },
         {
-            "include": "#comments"
+            "include": "#characters"
+        },
+        {
+            "include": "#keywords"
+        },
+        {
+            "include": "#types"
         },
         {
             "include": "#numbers"
@@ -19,23 +26,16 @@
         }
     ],
     "repository": {
-        "keywords": {
+        "comments": {
             "patterns": [
                 {
-                    "name": "keyword.control.zeru",
-                    "match": "\\b(if|else|while|for|in|break|continue|return|match|default)\\b"
+                    "name": "comment.line.double-slash.zeru",
+                    "match": "//.*$"
                 },
                 {
-                    "name": "keyword.declaration.zeru",
-                    "match": "\\b(fn|var|const|struct|enum|trait|import|as|asm|volatile)\\b"
-                },
-                {
-                    "name": "constant.language.zeru",
-                    "match": "\\b(true|false|None|self)\\b"
-                },
-                {
-                    "name": "storage.type.zeru",
-                    "match": "\\b(i8|i16|i32|i64|u8|u16|u32|u64|usize|f32|f64|bool|str|Array|Vec)\\b"
+                    "name": "comment.block.zeru",
+                    "begin": "/\\*",
+                    "end": "\\*/"
                 }
             ]
         },
@@ -59,16 +59,43 @@
                 }
             ]
         },
-        "comments": {
+        "characters": {
             "patterns": [
                 {
-                    "name": "comment.line.double-slash.zeru",
-                    "match": "//.*$"
+                    "name": "constant.character.zeru",
+                    "match": "'(\\\\.|[^'\\\\])'"
+                }
+            ]
+        },
+        "keywords": {
+            "patterns": [
+                {
+                    "name": "keyword.control.zeru",
+                    "match": "\\b(if|else|while|for|in|break|continue|return|match|default)\\b"
                 },
                 {
-                    "name": "comment.block.zeru",
-                    "begin": "/\\*",
-                    "end": "\\*/"
+                    "name": "keyword.declaration.zeru",
+                    "match": "\\b(fn|var|const|pub|struct|enum|trait|import|as|asm|volatile)\\b"
+                },
+                {
+                    "name": "constant.language.zeru",
+                    "match": "\\b(true|false|None|Some|Ok|Err)\\b"
+                },
+                {
+                    "name": "variable.language.self.zeru",
+                    "match": "\\bself\\b"
+                }
+            ]
+        },
+        "types": {
+            "patterns": [
+                {
+                    "name": "storage.type.zeru",
+                    "match": "\\b(i8|i16|i32|i64|isize|u8|u16|u32|u64|usize|f32|f64|bool|void|str)\\b"
+                },
+                {
+                    "name": "entity.name.type.zeru",
+                    "match": "\\b[A-Z][a-z][A-Za-z0-9_]*\\b"
                 }
             ]
         },
@@ -76,23 +103,19 @@
             "patterns": [
                 {
                     "name": "constant.numeric.hex.zeru",
-                    "match": "\\b0x[0-9a-fA-F]+\\b"
+                    "match": "\\b0x[0-9a-fA-F_]+\\b"
                 },
                 {
                     "name": "constant.numeric.binary.zeru",
-                    "match": "\\b0b[01]+\\b"
+                    "match": "\\b0b[01_]+\\b"
                 },
                 {
                     "name": "constant.numeric.octal.zeru",
-                    "match": "\\b0o[0-7]+\\b"
+                    "match": "\\b0o[0-7_]+\\b"
                 },
                 {
                     "name": "constant.numeric.float.zeru",
-                    "match": "\\b\\d+\\.\\d*\\b"
-                },
-                {
-                    "name": "constant.numeric.integer.zeru",
-                    "match": "\\b\\d+\\b"
+                    "match": "\\b\\d[0-9_]*(\\.\\d[0-9_]*)?([eE][+-]?\\d+)?\\b"
                 }
             ]
         },
@@ -100,10 +123,9 @@
             "patterns": [
                 {
                     "name": "keyword.operator.zeru",
-                    "match": "([-+*/%&|^<>!=]=*|&&|\\|\\||=>|::)"
+                    "match": "([-+*/%&|^<>!=]=*|&&|\\|\\||=>|::|\\.\\.)"
                 }
             ]
         }
-    ],
-    "scopeName": "source.zeru"
+    }
 }
