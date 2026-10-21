@@ -600,7 +600,7 @@ fn element(ty: &str) -> Option<String> {
     }
     match generic(ty) {
         ("Vec" | "Array", args) => args.first().map(|arg| arg.to_string()),
-        ("str", _) => Some("u8".into()),
+        ("str" | "String", _) => Some("u8".into()),
         _ => None,
     }
 }

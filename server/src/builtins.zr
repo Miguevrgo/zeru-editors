@@ -233,24 +233,6 @@ pub struct Vec<T> {
     // ```
     fn min(self) T? {}
 
-    // Returns the bytes of a `Vec<u8>` as a `str`, to print, compare or pass
-    // them as text.
-    //
-    // The `str` shares the Vec's memory, so it goes stale when the Vec
-    // grows or is dropped; take it again after changing the Vec.
-    //
-    // # Examples
-    //
-    // ```zeru
-    // var name: Vec<u8> = Vec.new();
-    // for b in "zeru" {
-    //     name.push(b);
-    // }
-    // name.push('!');
-    // println("{}", name.as_str()); // zeru!
-    // ```
-    fn as_str(self) str {}
-
     // Returns the largest element, or None when there are none.
     //
     // For numbers.
@@ -262,6 +244,84 @@ pub struct Vec<T> {
     // println("{}", v.max().unwrap()); // 9
     // ```
     fn max(self) T? {}
+}
+
+// Text that owns its bytes, grows, and frees them when it goes out of scope.
+//
+// A string literal is a `str`; a String is text made at runtime, as
+// `fs::read_file` gives or `push_str` builds. A String goes wherever a `str`
+// does, so every `str` method works on it, as do `s[i]`, `for b in s`, `==`
+// and printing. Like a `Vec`, assigning or passing it moves it.
+//
+// # Examples
+//
+// ```zeru
+// var name = String.from("ze");
+// name.push_str("ru");
+// name[0] = 'Z';
+// println("{} {} {}", name, name.len(), name == "Zeru"); // Zeru 4 true
+// ```
+pub struct String {
+    // Returns an empty String; it allocates nothing until text is added.
+    fn new() String {}
+
+    // Returns a String holding a copy of `text`.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var s = String.from("hi");
+    // s.push('!');
+    // println("{}", s); // hi!
+    // ```
+    fn from(text: str) String {}
+
+    // Adds `text` at the end.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var path = String.from("/home");
+    // path.push_str("/zeru");
+    // println("{}", path); // /home/zeru
+    // ```
+    fn push_str(var self, text: str) {}
+
+    // Adds one byte at the end, as `'a'`.
+    fn push(var self, byte: u8) {}
+
+    // Removes all the text, keeping the memory for new text.
+    fn clear(var self) {}
+
+    // Returns the length in bytes.
+    fn len(self) usize {}
+
+    // Returns whether it holds no text.
+    fn is_empty(self) bool {}
+
+    // A second String holding a copy of the text.
+    fn copy(self) String {}
+
+    // The parts between each `sep`, as `str.split` gives them.
+    fn split(self, sep: str) Vec<str> {}
+
+    // The lines, as `str.lines` gives them.
+    fn lines(self) Vec<str> {}
+
+    // The text without spaces, tabs and line breaks at either end.
+    fn trim(self) str {}
+
+    // Returns whether it begins with `prefix`.
+    fn starts_with(self, prefix: str) bool {}
+
+    // Returns whether it ends with `suffix`.
+    fn ends_with(self, suffix: str) bool {}
+
+    // The integer it spells, as `str.parse_int` reads it.
+    fn parse_int(self) i64! {}
+
+    // The number it spells, as `str.parse_float` reads it.
+    fn parse_float(self) f64! {}
 }
 
 // Text, as a read-only slice of bytes.
