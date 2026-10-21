@@ -617,7 +617,9 @@ fn hints(program: &Program, file: usize) -> Vec<InlayHint> {
         for (param, &arg) in function.params.iter().zip(args) {
             let name = param.split(':').next().unwrap_or_default();
             let name = name.trim().trim_start_matches("var ").trim();
-            let mut written = text[arg..].split(|c: char| !c.is_alphanumeric() && c != '_');
+            let written = text[arg..].trim_start_matches(['&', '*']);
+            let written = written.trim_start_matches("var ");
+            let mut written = written.split(|c: char| !c.is_alphanumeric() && c != '_');
             if written.next() != Some(name) {
                 found.push(hint(arg, format!("{name}:"), InlayHintKind::PARAMETER));
             }
@@ -696,7 +698,9 @@ mod tests {
         let source = "fn area(w: i32, h: i32) i32 { return w * h; }
 fn main() {
     var h = 2;
+    var w = 3;
     area(3, h);
+    area(*&w, h);
 }
 ";
         let root = PathBuf::from("/p/main.zr");
@@ -710,6 +714,6 @@ fn main() {
                 _ => String::new(),
             })
             .collect();
-        assert_eq!(labels, ["w:", ": i32"]);
+        assert_eq!(labels, ["w:", ": i32", ": i32"]);
     }
 }
