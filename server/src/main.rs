@@ -608,7 +608,7 @@ fn hints(program: &Program, file: usize) -> Vec<InlayHint> {
             continue;
         };
         let function = &program.files[f].module.items[at];
-        let prints = ["print", "println", "eprint", "eprintln"];
+        let prints = ["print", "println", "eprint", "eprintln", "assert"];
         if !matches!(function.kind, ItemKind::Fn | ItemKind::Method)
             || f == BUILTINS && prints.contains(&function.name.as_str())
         {

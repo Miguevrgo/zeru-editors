@@ -555,3 +555,19 @@ pub fn eprint(format: str) {}
 
 // Writes `format` to stderr as `println` does, for errors and diagnostics.
 pub fn eprintln(format: str) {}
+
+// Stops the program when `cond` is false, writing where to stderr and
+// then the message after `cond`, formatted as `print` does, or `cond` as
+// written.
+//
+// `--release-fast` builds leave every `assert` out, `cond` included.
+//
+// # Examples
+//
+// ```zeru
+// var v: Vec<i32> = [1, 2];
+// assert(v.len() == 2);
+// assert(v[0] < v[1], "{} comes first", v[0]);
+// println("sorted"); // sorted
+// ```
+pub fn assert(cond: bool) {}
