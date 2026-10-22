@@ -57,8 +57,9 @@ pub struct Local {
 }
 
 /// What the source says a local's type is: written out, the value it is
-/// initialized with, an element of what a `for` walks, or a payload of the
-/// variant a pattern names, matched against `subject`.
+/// initialized with, an element of what a `for` walks, a payload of the
+/// variant a pattern names, matched against `subject`, or a part of the
+/// tuple another hint gives.
 #[derive(Clone, Debug)]
 pub enum Hint {
     Written(String),
@@ -69,6 +70,7 @@ pub enum Hint {
         index: usize,
         subject: Chain,
     },
+    Part(Box<Hint>, usize),
 }
 
 #[derive(Debug)]
@@ -862,6 +864,23 @@ impl Parser<'_> {
     fn var(&mut self) -> Option<()> {
         let start = self.span().start;
         self.bump();
+        if self.at("(") {
+            let mut names = Vec::new();
+            let parsed = (|| {
+                self.names(LocalKind::Var, true, &mut Vec::new(), &mut names)?;
+                for &(local, _) in &names {
+                    self.module.locals[local].from = usize::MAX;
+                }
+                self.expect("=")?;
+                let value = self.expression()?;
+                self.hint_parts(&names, false, |_| Hint::Value(value.clone()));
+                self.expect(";")
+            })();
+            for &(local, _) in &names {
+                self.module.locals[local].from = self.prev_end();
+            }
+            return parsed;
+        }
         let name = self.ident("a name")?;
         let local = self.declare(name, LocalKind::Var, String::new(), None);
         self.module.locals[local].from = usize::MAX;
@@ -915,13 +934,41 @@ impl Parser<'_> {
         let start = self.span().start;
         self.bump();
         self.scoped(start, |p| {
-            let mut name = p.ident("a name")?;
-            if p.eat(",") {
-                let index = p.declare(name, LocalKind::Binding, p.name(name), None);
-                p.module.locals[index].hint = Some(Hint::Written("usize".into()));
-                name = p.ident("a name")?;
+            let mut names = Vec::new();
+            let mut single = None;
+            if !p.at("(") {
+                let name = p.ident("a name")?;
+                match p.eat(",") {
+                    true => {
+                        let index = p.declare(name, LocalKind::Binding, p.name(name), None);
+                        p.module.locals[index].hint = Some(Hint::Written("usize".into()));
+                    }
+                    false => single = Some(name),
+                }
+            }
+            if single.is_none() {
+                match p.at("(") {
+                    true => p.names(LocalKind::Binding, false, &mut Vec::new(), &mut names)?,
+                    false => single = Some(p.ident("a name")?),
+                }
             }
             p.expect("in")?;
+            if single.is_none() && p.at("zip") && p.nth(1) == "(" {
+                p.bump();
+                p.bump();
+                let first = p.expression()?;
+                p.expect(",")?;
+                let second = p.expression()?;
+                p.expect(")")?;
+                p.hint_parts(&names, true, |side| match side {
+                    0 => Hint::Element(first.clone()),
+                    _ => Hint::Element(second.clone()),
+                });
+                for &(local, _) in &names {
+                    p.module.locals[local].from = p.prev_end();
+                }
+                return p.block();
+            }
             let walked = p.condition()?;
             let hint = match p.eat("..") {
                 true => {
@@ -930,10 +977,78 @@ impl Parser<'_> {
                 }
                 false => Hint::Element(walked),
             };
-            let local = p.declare(name, LocalKind::Binding, p.name(name), Some(hint));
-            p.module.locals[local].from = p.prev_end();
+            match single {
+                Some(name) => {
+                    let local = p.declare(name, LocalKind::Binding, p.name(name), Some(hint));
+                    p.module.locals[local].from = p.prev_end();
+                }
+                None => {
+                    p.hint_parts(&names, false, |_| hint.clone());
+                    for &(local, _) in &names {
+                        p.module.locals[local].from = p.prev_end();
+                    }
+                }
+            }
             p.block()
         })
+    }
+
+    /// The names a `var (..)` or `for (..)` takes a tuple apart into,
+    /// declared as `kind`, each with its path of part indexes in `found`; in a
+    /// `var`, `typed`, a name may carry its type.
+    fn names(
+        &mut self,
+        kind: LocalKind,
+        typed: bool,
+        path: &mut Vec<usize>,
+        found: &mut Vec<(usize, Vec<usize>)>,
+    ) -> Option<()> {
+        if self.eat("(") {
+            let mut at = 0;
+            loop {
+                path.push(at);
+                self.names(kind, typed, path, found)?;
+                path.pop();
+                at += 1;
+                if !self.eat(",") || self.at(")") {
+                    break;
+                }
+            }
+            return self.expect(")");
+        }
+        let span = self.ident("a name")?;
+        if self.name(span) == "_" {
+            return Some(());
+        }
+        let local = self.declare(span, kind, self.name(span), None);
+        if typed && self.eat(":") {
+            let ty = self.annotation()?;
+            self.module.locals[local].hint = Some(Hint::Written(ty));
+        }
+        found.push((local, path.clone()));
+        Some(())
+    }
+
+    /// Give each of `names` without a written type the part of the tuple
+    /// `whole` hints at that its path leads to. With `sides`, the first
+    /// index of a path picks which of `zip`'s sequences `whole` gives.
+    fn hint_parts(
+        &mut self,
+        names: &[(usize, Vec<usize>)],
+        sides: bool,
+        whole: impl Fn(usize) -> Hint,
+    ) {
+        for (local, path) in names {
+            if self.module.locals[*local].hint.is_some() {
+                continue;
+            }
+            let side = path.first().copied().unwrap_or_default();
+            let mut hint = whole(side);
+            for &at in &path[usize::from(sides)..] {
+                hint = Hint::Part(Box::new(hint), at);
+            }
+            self.module.locals[*local].hint = Some(hint);
+        }
     }
 
     fn ty(&mut self) -> Option<String> {

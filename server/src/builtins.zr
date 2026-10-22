@@ -193,6 +193,17 @@ pub struct Vec<T> {
     // ```
     fn swap(var self, i: usize, j: usize) {}
 
+    // Puts the elements in the opposite order.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var v: Vec<i32> = [1, 2, 3];
+    // v.reverse();
+    // println("{}", v); // [3, 2, 1]
+    // ```
+    fn reverse(var self) {}
+
     // Returns whether an element equals `value`.
     //
     // Takes O(n) time, looking at each element in turn.
@@ -302,7 +313,8 @@ pub struct String {
     // A second String holding a copy of the text.
     fn copy(self) String {}
 
-    // The parts between each `sep`, as `str.split` gives them.
+    // The parts between each `sep`, or the words with no `sep`, as
+    // `str.split` gives them.
     fn split(self, sep: str) Vec<str> {}
 
     // The lines, as `str.lines` gives them.
@@ -342,17 +354,20 @@ struct Str {
     // Returns the length in bytes.
     fn len(self) usize {}
 
-    // Returns the parts of the text between each `sep`.
+    // Returns the parts of the text between each `sep`, or with no `sep`
+    // the words between spaces, tabs and line breaks.
     //
-    // The parts share the memory of the text, nothing is copied. Two `sep`
-    // in a row give an empty part between them, and an empty `sep` gives
-    // the whole text as the only part.
+    // The parts share the memory of the text, nothing is copied. With a
+    // `sep`, two in a row give an empty part between them, and an empty
+    // `sep` gives the whole text as the only part. Without one, runs of
+    // blanks count as one and no part is empty.
     //
     // # Examples
     //
     // ```zeru
     // var parts = "a,b,,c".split(",");
     // println("{} {} {}", parts.len(), parts[1], parts[2].len()); // 4 b 0
+    // println("{}", "  84283   63343\n".split()); // ["84283", "63343"]
     // ```
     fn split(self, sep: str) Vec<str> {}
 
@@ -527,15 +542,18 @@ struct Result<T> {
 
 // Writes `format` to stdout, each `{}` replaced by the next value.
 //
-// Values are numbers, bools or `str`; `{{}}` writes `{}` itself. The
-// output waits in a buffer that `println` and the end of the program
-// flush.
+// Values are numbers, bools, text, and lists, tuples, optionals and
+// results of them: `[1, 2]`, `(1, "a")`, `None`, `Err(2)`, with text inside
+// them quoted. `{{}}` writes `{}` itself. The output waits in a buffer that
+// `println` and the end of the program flush.
 //
 // # Examples
 //
 // ```zeru
 // print("{} + {} = ", 2, 3);
 // println("{}", 5); // 2 + 3 = 5
+// var v: Vec<str> = ["a", "b"];
+// println("{} {}", v, (1, true)); // ["a", "b"] (1, true)
 // ```
 pub fn print(format: str) {}
 

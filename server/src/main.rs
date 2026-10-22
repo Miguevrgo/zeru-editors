@@ -716,4 +716,32 @@ fn main() {
             .collect();
         assert_eq!(labels, ["w:", ": i32", ": i32"]);
     }
+
+    #[test]
+    fn tuple_names_take_their_part_type() {
+        let source = "fn pair() (i32, (bool, str)) { return (1, (true, \"a\")); }
+fn main() {
+    var (n, (flag, _)) = pair();
+    var xs: Vec<(u8, f64)> = Vec.new();
+    for (byte, weight) in xs {}
+    var ys: Vec<i64> = Vec.new();
+    for (x, y) in zip(xs, ys) {}
+}
+";
+        let root = PathBuf::from("/p/main.zr");
+        let read = |_: &Path| Some(source.to_string());
+        let program = Program::load(std::slice::from_ref(&root), None, read);
+        let main = program.find(&root).unwrap();
+        let labels: Vec<String> = hints(&program, main)
+            .into_iter()
+            .map(|hint| match hint.label {
+                InlayHintLabel::String(label) => label,
+                _ => String::new(),
+            })
+            .collect();
+        assert_eq!(
+            labels,
+            [": i32", ": bool", ": u8", ": f64", ": (u8, f64)", ": i64"]
+        );
+    }
 }

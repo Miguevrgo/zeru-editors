@@ -392,11 +392,20 @@ impl Program {
     /// The type a local is given by the source: written, initialized from,
     /// walked by a `for`, or taken out of a payload by a pattern.
     pub fn local_type(&self, file: usize, local: usize, depth: usize) -> Option<Ty> {
-        match self.files[file].module.locals[local].hint.as_ref()? {
+        let hint = self.files[file].module.locals[local].hint.as_ref()?;
+        self.hint_type(file, hint, depth)
+    }
+
+    fn hint_type(&self, file: usize, hint: &Hint, depth: usize) -> Option<Ty> {
+        match hint {
             Hint::Written(ty) => Some(Ty::Value(file, ty.clone())),
             Hint::Value(chain) => self.type_of_in(file, chain, depth),
             Hint::Element(chain) => match self.type_of_in(file, chain, depth)? {
                 Ty::Value(f, ty) => Some(Ty::Value(f, element(&ty)?)),
+                _ => None,
+            },
+            Hint::Part(whole, at) => match self.hint_type(file, whole, depth)? {
+                Ty::Value(f, ty) => Some(Ty::Value(f, part(&ty, *at)?)),
                 _ => None,
             },
             Hint::Payload {
@@ -615,6 +624,13 @@ pub fn generic(ty: &str) -> (&str, Vec<&str>) {
     (base.trim(), args)
 }
 
+/// Part `at` of a tuple type, as `str` is part 1 of `(i32, str)`.
+fn part(ty: &str, at: usize) -> Option<String> {
+    let inner = strip(ty).strip_prefix('(')?.strip_suffix(')')?;
+    let listed = format!("_<{inner}>");
+    generic(&listed).1.get(at).map(|part| part.to_string())
+}
+
 /// The type of an element of a `Vec`, an array, a slice or a `str`.
 fn element(ty: &str) -> Option<String> {
     let ty = strip(ty);
@@ -641,6 +657,8 @@ mod tests {
         );
         assert_eq!(element("&Vec<Account>").as_deref(), Some("Account"));
         assert_eq!(element("&[u8]").as_deref(), Some("u8"));
+        assert_eq!(part("((i32, bool), Vec<str>)", 0).as_deref(), Some("(i32, bool)"));
+        assert_eq!(part("&(i32, str)", 1).as_deref(), Some("str"));
     }
 
     #[test]
