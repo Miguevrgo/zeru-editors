@@ -477,8 +477,8 @@ struct Optional<T> {
 
 // `T!`: a value of type `T`, or an `i32` error code.
 //
-// A function returning `T!` gives a value with `return Ok(value);` and an
-// error with `return Err(code);`. `match` takes both cases apart, and `x!`
+// A function returning `T!` gives a value with `return value;` and an error
+// with `return Err(code);`. `match` takes both cases apart, and `x!`
 // inside such a function returns the error at once when `x` holds one.
 //
 // # Examples
@@ -488,7 +488,7 @@ struct Optional<T> {
 //     if n % 2 != 0 {
 //         return Err(22);
 //     }
-//     return Ok(n / 2);
+//     return n / 2;
 // }
 //
 // fn quarter(n: i32) i32! {
