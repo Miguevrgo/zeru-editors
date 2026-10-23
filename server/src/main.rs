@@ -735,6 +735,23 @@ fn main() {
     }
 
     #[test]
+    fn parentheses_around_one_name_only_group_it() {
+        let source = "fn pair() (i32, (bool, u8)) { return (1, (true, 2)); }\nfn main() {\n    var (n, ((flag), _)) = pair();\n}\n";
+        let root = PathBuf::from("/p/main.zr");
+        let read = |_: &Path| Some(source.to_string());
+        let program = Program::load(std::slice::from_ref(&root), None, read);
+        let main = program.find(&root).unwrap();
+        let labels: Vec<String> = hints(&program, main)
+            .into_iter()
+            .map(|hint| match hint.label {
+                InlayHintLabel::String(label) => label,
+                _ => String::new(),
+            })
+            .collect();
+        assert_eq!(labels, [": i32", ": bool"]);
+    }
+
+    #[test]
     fn number_limits_have_their_type() {
         let source = "fn main() {\n    var low = i64.MAX;\n    var high = f32.MIN;\n}\n";
         let root = PathBuf::from("/p/main.zr");

@@ -1004,15 +1004,22 @@ impl Parser<'_> {
         found: &mut Vec<(usize, Vec<usize>)>,
     ) -> Option<()> {
         if self.eat("(") {
-            let mut at = 0;
+            let (first, depth) = (found.len(), path.len());
+            let (mut at, mut comma) = (0, false);
             loop {
                 path.push(at);
                 self.names(kind, typed, path, found)?;
                 path.pop();
                 at += 1;
-                if !self.eat(",") || self.at(")") {
+                comma = self.eat(",");
+                if !comma || self.at(")") {
                     break;
                 }
+            }
+            if at == 1 && !comma {
+                found[first..].iter_mut().for_each(|(_, path)| {
+                    path.remove(depth);
+                });
             }
             return self.expect(")");
         }
