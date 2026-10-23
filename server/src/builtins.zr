@@ -247,6 +247,70 @@ pub struct Vec<T> {
     // ```
     fn reverse(var self) {}
 
+    // Moves every element `n` places to the left; those that fall off the
+    // start come back at the end.
+    //
+    // `n` may be any size: it counts in full turns.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var v: Vec<i32> = [1, 2, 3, 4];
+    // v.rotate_left(1);
+    // println("{}", v); // [2, 3, 4, 1]
+    // ```
+    fn rotate_left(var self, n: usize) {}
+
+    // Moves every element `n` places to the right; those that fall off the
+    // end come back at the start.
+    //
+    // `n` may be any size: it counts in full turns.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var v: Vec<i32> = [1, 2, 3, 4];
+    // v.rotate_right(1);
+    // println("{}", v); // [4, 1, 2, 3]
+    // ```
+    fn rotate_right(var self, n: usize) {}
+
+    // Removes each element equal to the one before it, so every run of
+    // equal elements keeps only its first.
+    //
+    // After `sort()`, it leaves each value once.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var v: Vec<i32> = [1, 1, 2, 1, 1];
+    // v.dedup();
+    // println("{}", v); // [1, 2, 1]
+    // v.sort();
+    // v.dedup();
+    // println("{}", v); // [1, 2]
+    // ```
+    fn dedup(var self) {}
+
+    // Returns views of the elements `n` at a time, the last one shorter when
+    // they do not divide evenly. Nothing is copied.
+    //
+    // # Panics
+    //
+    // When `n` is 0.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var v: Vec<i32> = [1, 2, 3, 4, 5];
+    // println("{}", v.chunks(2)); // [[1, 2], [3, 4], [5]]
+    // for group in v.chunks(3) {
+    //     print("{} ", group.len());
+    // }
+    // println(""); // 3 2
+    // ```
+    fn chunks(self, n: usize) Vec<&[T]> {}
+
     // Returns whether an element equals `value`.
     //
     // Takes O(n) time, looking at each element in turn.
