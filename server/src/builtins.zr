@@ -47,12 +47,38 @@ pub struct Vec<T> {
     fn with_capacity(capacity: usize) Vec<T> {}
 
     // Returns the number of elements.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var v: Vec<str> = ["a", "b"];
+    // println("{}", v.len()); // 2
+    // ```
     fn len(self) usize {}
 
     // Returns how many elements fit before the Vec has to grow.
+    //
+    // It is never less than the length.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var v: Vec<i32> = Vec.with_capacity(8);
+    // v.push(1);
+    // println("{} {}", v.len(), v.capacity()); // 1 8
+    // ```
     fn capacity(self) usize {}
 
     // Returns whether the Vec has no elements.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var v: Vec<i32> = Vec.new();
+    // println("{}", v.is_empty()); // true
+    // v.push(1);
+    // println("{}", v.is_empty()); // false
+    // ```
     fn is_empty(self) bool {}
 
     // Adds `value` at the end.
@@ -144,9 +170,26 @@ pub struct Vec<T> {
 
     // Makes room for at least `additional` more elements, so pushing them
     // allocates nothing more.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var v: Vec<i32> = [1];
+    // v.reserve(100);
+    // println("{}", v.capacity() >= 101); // true
+    // ```
     fn reserve(var self, additional: usize) {}
 
     // Gives back the memory not in use, so the capacity equals the length.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var v: Vec<i32> = Vec.with_capacity(100);
+    // v.push(1);
+    // v.shrink_to_fit();
+    // println("{}", v.capacity()); // 1
+    // ```
     fn shrink_to_fit(var self) {}
 
     // Returns a second Vec holding a copy of every element.
