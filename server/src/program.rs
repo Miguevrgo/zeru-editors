@@ -4,7 +4,7 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::lexer::{Span, lex};
+use crate::lexer::{PRIMITIVES, Span, lex};
 use crate::parser::{Chain, Hint, ItemKind, LocalKind, Module, Op, UseKind, parse};
 
 pub struct File {
@@ -332,6 +332,9 @@ impl Program {
         let Some(at) = chain.at else {
             return self.apply(Ty::Value(file, chain.ty.clone()?), ops);
         };
+        if let Some(number) = self.limit(file, at, depth) {
+            return self.apply(Ty::Value(file, number.to_string()), ops);
+        }
         let called = ops.first() == Some(&Op::Call);
         let receiver = match &self.files[file].module.uses[at].kind {
             UseKind::Member { object, .. } => self.type_of_in(file, object, depth + 1),
@@ -359,6 +362,19 @@ impl Program {
             Some(Def::Module(_)) | None => return None,
         };
         self.apply(ty, ops)
+    }
+
+    /// The number type `i32.MAX` or `f64.MIN` names, when the use `at` is one.
+    fn limit(&self, file: usize, at: usize, depth: usize) -> Option<&str> {
+        let uses = &self.files[file].module.uses;
+        let UseKind::Member { object, .. } = &uses[at].kind else {
+            return None;
+        };
+        let base = object.at.filter(|_| object.ops.is_empty())?;
+        let number = self.text(file, uses[base].span);
+        let named = matches!(self.text(file, uses[at].span), "MAX" | "MIN");
+        let primitive = PRIMITIVES.contains(&number) && !matches!(number, "bool" | "void");
+        (named && primitive && self.resolve_in(file, base, depth + 1).is_none()).then_some(number)
     }
 
     /// `ty` after indexing, unwrapping, taking references and dereferencing.
