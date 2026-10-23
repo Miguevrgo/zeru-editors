@@ -7,6 +7,7 @@ Highlighting, indentation and a language server for the
 |---|---|---|---|
 | [Neovim 0.11+](#neovim) | yes | yes | yes, set up by the plugin |
 | [Emacs](#emacs) | yes | yes | yes, through eglot |
+| [Kakoune](#kakoune) | yes | yes | yes, through kakoune-lsp |
 | [Vim](#vim) | yes | no | no |
 | [VS Code](#vs-code) | yes | brackets and comments | no |
 
@@ -116,6 +117,30 @@ cargo build --release --manifest-path ~/zeru-editors/server/Cargo.toml
 lines start the language server through eglot, built into Emacs 29 and later; without
 them the mode works on its own.
 
+## Kakoune
+
+Clone this repository, build the server, and add to your `kakrc`:
+
+```bash
+git clone https://github.com/Miguevrgo/zeru-editors ~/zeru-editors
+cargo build --release --manifest-path ~/zeru-editors/server/Cargo.toml
+```
+
+```kak
+source ~/zeru-editors/kakoune/zeru.kak
+```
+
+`.zr` files get highlighting, indentation that follows `zeru fmt`, and `//` for
+comment toggling. With [kakoune-lsp](https://github.com/kakoune-lsp/kakoune-lsp) loaded
+before that line, the script points it at the server it was cloned with, so turning
+the client on for Zeru is enough:
+
+```kak
+eval %sh{kak-lsp}
+source ~/zeru-editors/kakoune/zeru.kak
+hook global WinSetOption filetype=zeru %{ lsp-enable-window }
+```
+
 ## Vim
 
 Highlighting only. With [vim-plug](https://github.com/junegunn/vim-plug):
@@ -141,4 +166,5 @@ restart VS Code, or package it with `vsce package` inside `vscode/` and install 
 | `ftdetect/`, `syntax/` | filetype and highlighting for Vim and Neovim |
 | `ftplugin/`, `indent/`, `lsp/`, `plugin/` | Neovim settings, indentation and server setup |
 | `emacs/` | `zeru-mode` |
+| `kakoune/` | highlighting, indentation and server setup for Kakoune |
 | `vscode/` | the VS Code extension |
