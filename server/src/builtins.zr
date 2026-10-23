@@ -311,6 +311,29 @@ pub struct Vec<T> {
     // ```
     fn chunks(self, n: usize) Vec<&[T]> {}
 
+    // Returns a view of every run of `n` elements next to each other, each
+    // starting one element after the one before; none when there are fewer
+    // than `n`. Nothing is copied.
+    //
+    // # Panics
+    //
+    // When `n` is 0.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var v: Vec<i32> = [1, 2, 3, 4];
+    // println("{}", v.windows(2)); // [[1, 2], [2, 3], [3, 4]]
+    // var rising = 0;
+    // for pair in v.windows(2) {
+    //     if pair[1] > pair[0] {
+    //         rising += 1;
+    //     }
+    // }
+    // println("{}", rising); // 3
+    // ```
+    fn windows(self, n: usize) Vec<&[T]> {}
+
     // Returns whether an element equals `value`.
     //
     // Takes O(n) time, looking at each element in turn.
