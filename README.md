@@ -119,7 +119,24 @@ them the mode works on its own.
 
 ## Kakoune
 
-Clone this repository, build the server, and add to your `kakrc`:
+With [plug.kak](https://github.com/andreyorst/plug.kak), in your `kakrc`:
+
+```kak
+plug "Miguevrgo/zeru-editors" do %{
+    cargo build --release --manifest-path server/Cargo.toml
+} config %{
+    hook global WinSetOption filetype=zeru %{ lsp-enable-window }
+}
+```
+
+Run `:plug-install` and open a `.zr` file. It gets highlighting, indentation that
+follows `zeru fmt`, and `//` for comment toggling. With
+[kakoune-lsp](https://github.com/kakoune-lsp/kakoune-lsp) loaded (`eval %sh{kak-lsp}`),
+the `config` line turns on the language server, which the plugin finds where `do` built
+it. `:plug-update` updates the plugin and rebuilds the server. Without kakoune-lsp,
+leave out the `config` block.
+
+Without plug.kak, clone the repository, build the server, and source the script:
 
 ```bash
 git clone https://github.com/Miguevrgo/zeru-editors ~/zeru-editors
@@ -127,16 +144,6 @@ cargo build --release --manifest-path ~/zeru-editors/server/Cargo.toml
 ```
 
 ```kak
-source ~/zeru-editors/kakoune/zeru.kak
-```
-
-`.zr` files get highlighting, indentation that follows `zeru fmt`, and `//` for
-comment toggling. With [kakoune-lsp](https://github.com/kakoune-lsp/kakoune-lsp) loaded
-before that line, the script points it at the server it was cloned with, so turning
-the client on for Zeru is enough:
-
-```kak
-eval %sh{kak-lsp}
 source ~/zeru-editors/kakoune/zeru.kak
 hook global WinSetOption filetype=zeru %{ lsp-enable-window }
 ```
