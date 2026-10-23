@@ -49,6 +49,9 @@ fn builtin(ty: &str) -> Option<(&'static str, Vec<&str>)> {
     if let Some(inner) = ty.strip_suffix('!') {
         return Some(("Result", vec![inner]));
     }
+    if let Some(inner) = ty.strip_prefix('[').and_then(|ty| ty.strip_suffix(']')) {
+        return Some(("Slice", vec![inner]));
+    }
     (ty == "str").then(|| ("Str", Vec::new()))
 }
 

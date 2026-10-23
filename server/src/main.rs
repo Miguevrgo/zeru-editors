@@ -718,6 +718,23 @@ fn main() {
     }
 
     #[test]
+    fn slice_methods_have_their_type() {
+        let source = "fn main() {\n    var v: Vec<i64> = [1];\n    var part = v[..];\n    var total = part.sum();\n}\n";
+        let root = PathBuf::from("/p/main.zr");
+        let read = |_: &Path| Some(source.to_string());
+        let program = Program::load(std::slice::from_ref(&root), None, read);
+        let main = program.find(&root).unwrap();
+        let labels: Vec<String> = hints(&program, main)
+            .into_iter()
+            .map(|hint| match hint.label {
+                InlayHintLabel::String(label) => label,
+                _ => String::new(),
+            })
+            .collect();
+        assert_eq!(labels, [": &[i64]", ": i64"]);
+    }
+
+    #[test]
     fn number_limits_have_their_type() {
         let source = "fn main() {\n    var low = i64.MAX;\n    var high = f32.MIN;\n}\n";
         let root = PathBuf::from("/p/main.zr");
