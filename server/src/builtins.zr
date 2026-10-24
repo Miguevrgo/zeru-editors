@@ -209,7 +209,8 @@ pub struct Vec<T> {
 
     // Sorts the elements from smallest to largest.
     //
-    // For numbers. Takes O(n log n) time and no extra memory; equal
+    // For numbers, text and tuples of them, which sort by their first part,
+    // then the next. Takes O(n log n) time and no extra memory; equal
     // elements may change order.
     //
     // # Examples
@@ -218,6 +219,9 @@ pub struct Vec<T> {
     // var v: Vec<i32> = [5, -1, 3];
     // v.sort();
     // println("{} {} {}", v[0], v[1], v[2]); // -1 3 5
+    // var pairs: Vec<(str, i32)> = [("b", 1), ("a", 2)];
+    // pairs.sort();
+    // println("{}", pairs); // [("a", 2), ("b", 1)]
     // ```
     fn sort(var self) {}
 
