@@ -1201,19 +1201,35 @@ impl Parser<'_> {
     }
 
     /// One branch of an `if` giving a value: `{ value }`, or a block that
-    /// leaves, which gives nothing.
+    /// leaves, which gives nothing. The first reading is undone when it
+    /// does not fit.
     fn value_branch(&mut self) -> Option<Chain> {
-        let leaves = [
-            "var", "const", "while", "for", "return", "break", "continue",
+        let m = &self.module;
+        let lens = [
+            m.types.len(),
+            m.locals.len(),
+            m.scopes.len(),
+            m.uses.len(),
+            m.calls.len(),
+            m.errors.len(),
         ];
-        if leaves.contains(&self.nth(1)) {
-            self.block()?;
-            return Some(Chain::default());
+        let saved = (self.pos, self.panic, self.depth, self.tokens.clone());
+        if self.eat("{")
+            && let Some(value) = self.expression()
+            && self.eat("}")
+        {
+            return Some(value);
         }
-        self.expect("{")?;
-        let value = self.expression()?;
-        self.expect("}")?;
-        Some(value)
+        (self.pos, self.panic, self.depth, self.tokens) = saved;
+        let m = &mut self.module;
+        m.types.truncate(lens[0]);
+        m.locals.truncate(lens[1]);
+        m.scopes.truncate(lens[2]);
+        m.uses.truncate(lens[3]);
+        m.calls.truncate(lens[4]);
+        m.errors.truncate(lens[5]);
+        self.block()?;
+        Some(Chain::default())
     }
 
     fn operand(&mut self) -> Option<Chain> {
