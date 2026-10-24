@@ -1005,17 +1005,17 @@ impl Parser<'_> {
     ) -> Option<()> {
         if self.eat("(") {
             let (first, depth) = (found.len(), path.len());
-            let (mut at, mut comma) = (0, false);
-            loop {
+            let mut at = 0;
+            let comma = loop {
                 path.push(at);
                 self.names(kind, typed, path, found)?;
                 path.pop();
                 at += 1;
-                comma = self.eat(",");
+                let comma = self.eat(",");
                 if !comma || self.at(")") {
-                    break;
+                    break comma;
                 }
-            }
+            };
             if at == 1 && !comma {
                 found[first..].iter_mut().for_each(|(_, path)| {
                     path.remove(depth);
@@ -1183,6 +1183,28 @@ impl Parser<'_> {
         Some(left)
     }
 
+    /// `if c { a } else { b }` giving a value, of the type of its first
+    /// branch.
+    fn if_value(&mut self) -> Option<Chain> {
+        self.bump();
+        self.condition()?;
+        self.expect("{")?;
+        let value = self.expression()?;
+        self.expect("}")?;
+        self.expect("else")?;
+        match self.at("if") {
+            true => {
+                self.if_value()?;
+            }
+            false => {
+                self.expect("{")?;
+                self.expression()?;
+                self.expect("}")?;
+            }
+        }
+        Some(value)
+    }
+
     fn operand(&mut self) -> Option<Chain> {
         match self.kind() {
             Kind::Int | Kind::Float | Kind::Str => {
@@ -1236,6 +1258,7 @@ impl Parser<'_> {
                 Some(chain)
             }
             "match" => self.match_(),
+            "if" => self.if_value(),
             "asm" => self.asm(),
             _ => self.error_here(format!("Expected an expression, found '{}'", self.found())),
         }
@@ -1243,6 +1266,15 @@ impl Parser<'_> {
 
     fn path_or_literal(&mut self) -> Option<Chain> {
         let last = self.path(UseKind::Name)?;
+        if self.name(self.module.uses[last].span) == "Vec" && self.at("[") {
+            self.bump();
+            let first = self.delimited(Self::array)?;
+            let element = first.and_then(|chain| chain.ty);
+            return Some(Chain::typed(&format!(
+                "Vec<{}>",
+                element.as_deref().unwrap_or("_")
+            )));
+        }
         if !self.no_struct && self.at("{") {
             self.bump();
             self.delimited(|p| {
@@ -1392,19 +1424,20 @@ impl Parser<'_> {
         })
     }
 
-    fn array(&mut self) -> Option<()> {
+    /// The elements up to `]`, giving the first one.
+    fn array(&mut self) -> Option<Option<Chain>> {
         if self.eat("]") {
-            return Some(());
+            return Some(None);
         }
-        self.expression()?;
+        let first = self.expression()?;
         if self.eat(";") {
             self.expression()?;
-            return self.expect("]");
+        } else if self.eat(",") {
+            return self
+                .list("]", |p| p.expression().map(drop))
+                .map(|_| Some(first));
         }
-        match self.eat(",") {
-            true => self.list("]", |p| p.expression().map(drop)),
-            false => self.expect("]"),
-        }
+        self.expect("]").map(|_| Some(first))
     }
 
     fn match_(&mut self) -> Option<Chain> {

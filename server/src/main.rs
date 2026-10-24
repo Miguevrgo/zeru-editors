@@ -752,6 +752,25 @@ fn main() {
     }
 
     #[test]
+    fn an_if_giving_a_value_has_its_type() {
+        let source =
+            "fn main() {\n    var sign = if 1 < 2 { -1 } else if 2 < 3 { 0 } else { 1 };\n}\n";
+        let root = PathBuf::from("/p/main.zr");
+        let read = |_: &Path| Some(source.to_string());
+        let program = Program::load(std::slice::from_ref(&root), None, read);
+        let main = program.find(&root).unwrap();
+        assert!(program.files[main].module.errors.is_empty());
+        let labels: Vec<String> = hints(&program, main)
+            .into_iter()
+            .map(|hint| match hint.label {
+                InlayHintLabel::String(label) => label,
+                _ => String::new(),
+            })
+            .collect();
+        assert_eq!(labels, [": i32"]);
+    }
+
+    #[test]
     fn number_limits_have_their_type() {
         let source = "fn main() {\n    var low = i64.MAX;\n    var high = f32.MIN;\n}\n";
         let root = PathBuf::from("/p/main.zr");

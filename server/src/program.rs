@@ -650,7 +650,8 @@ fn part(ty: &str, at: usize) -> Option<String> {
     generic(&listed).1.get(at).map(|part| part.to_string())
 }
 
-/// The type of an element of a `Vec`, an array, a slice or a `str`.
+/// The type of an element of a `Vec`, an array, a slice, a `str`, or what
+/// `for` gives over a `HashMap` or a `HashSet`.
 fn element(ty: &str) -> Option<String> {
     let ty = strip(ty);
     if let Some(inner) = ty.strip_prefix('[').and_then(|t| t.strip_suffix(']')) {
@@ -659,6 +660,8 @@ fn element(ty: &str) -> Option<String> {
     match generic(ty) {
         ("Vec" | "Array", args) => args.first().map(|arg| arg.to_string()),
         ("str" | "String", _) => Some("u8".into()),
+        ("HashMap", args) => Some(format!("({})", args.join(", "))),
+        ("HashSet", args) => args.first().map(|arg| arg.to_string()),
         _ => None,
     }
 }
@@ -676,7 +679,10 @@ mod tests {
         );
         assert_eq!(element("&Vec<Account>").as_deref(), Some("Account"));
         assert_eq!(element("&[u8]").as_deref(), Some("u8"));
-        assert_eq!(part("((i32, bool), Vec<str>)", 0).as_deref(), Some("(i32, bool)"));
+        assert_eq!(
+            part("((i32, bool), Vec<str>)", 0).as_deref(),
+            Some("(i32, bool)")
+        );
         assert_eq!(part("&(i32, str)", 1).as_deref(), Some("str"));
     }
 
@@ -747,6 +753,9 @@ fn main() {
     var sz = 2 * points.len();
     var part = txt[1..];
     var few = points[..1];
+    var lit = Vec[1, 2];
+    var table: HashMap<str, Point> = make();
+    for (label, val) in table { }
     var u = unknown();
     u.len();
     u.x;
@@ -791,6 +800,9 @@ fn main() {
             ("sz", "var sz: usize"),
             ("part", "var part: str"),
             ("few", "var few: &[Point]"),
+            ("lit", "var lit: Vec<i32>"),
+            ("label", "label: str"),
+            ("val", "val: Point"),
         ] {
             assert_eq!(shown(name), expected);
         }
