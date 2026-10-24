@@ -1203,7 +1203,9 @@ impl Parser<'_> {
     /// One branch of an `if` giving a value: `{ value }`, or a block that
     /// leaves, which gives nothing.
     fn value_branch(&mut self) -> Option<Chain> {
-        let leaves = ["var", "const", "while", "for", "return", "break", "continue"];
+        let leaves = [
+            "var", "const", "while", "for", "return", "break", "continue",
+        ];
         if leaves.contains(&self.nth(1)) {
             self.block()?;
             return Some(Chain::default());
@@ -1632,7 +1634,12 @@ fn kind(c: u8, n: i32) str {
 ";
         let module = parse(source);
         assert!(module.errors.is_empty(), "{:?}", module.errors);
-        assert!(module.locals.iter().any(|l| l.name == "x" && l.kind == LocalKind::Binding));
+        assert!(
+            module
+                .locals
+                .iter()
+                .any(|l| l.name == "x" && l.kind == LocalKind::Binding)
+        );
     }
 
     #[test]
