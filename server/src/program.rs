@@ -40,6 +40,10 @@ pub enum Ty {
 /// and the print functions.
 pub const BUILTINS: usize = 0;
 
+const INTEGERS: [&str; 10] = [
+    "i8", "i16", "i32", "i64", "isize", "u8", "u16", "u32", "u64", "usize",
+];
+
 /// The built-in struct a written type is, and its type arguments.
 fn builtin(ty: &str) -> Option<(&'static str, Vec<&str>)> {
     let ty = strip(ty);
@@ -51,6 +55,9 @@ fn builtin(ty: &str) -> Option<(&'static str, Vec<&str>)> {
     }
     if let Some(inner) = ty.strip_prefix('[').and_then(|ty| ty.strip_suffix(']')) {
         return Some(("Slice", vec![inner]));
+    }
+    if INTEGERS.contains(&ty) {
+        return Some(("Int", vec![ty]));
     }
     (ty == "str").then(|| ("Str", Vec::new()))
 }

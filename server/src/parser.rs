@@ -970,7 +970,7 @@ impl Parser<'_> {
                 return p.block();
             }
             let walked = p.condition()?;
-            let hint = match p.eat("..") {
+            let hint = match p.eat("..") || p.eat("..=") {
                 true => {
                     p.condition()?;
                     Hint::Written("i32".into())
@@ -1079,11 +1079,11 @@ impl Parser<'_> {
                 }
                 "&" => {
                     p.bump();
+                    p.eat("var");
                     if p.eat("[") {
                         p.ty_inner()?;
                         p.expect("]")?;
                     } else {
-                        p.eat("var");
                         p.ty_inner()?;
                     }
                 }
@@ -1184,24 +1184,33 @@ impl Parser<'_> {
     }
 
     /// `if c { a } else { b }` giving a value, of the type of its first
-    /// branch.
+    /// branch that gives one.
     fn if_value(&mut self) -> Option<Chain> {
         self.bump();
         self.condition()?;
+        let first = self.value_branch()?;
+        self.expect("else")?;
+        let second = match self.at("if") {
+            true => self.if_value()?,
+            false => self.value_branch()?,
+        };
+        Some(match first == Chain::default() {
+            true => second,
+            false => first,
+        })
+    }
+
+    /// One branch of an `if` giving a value: `{ value }`, or a block that
+    /// leaves, which gives nothing.
+    fn value_branch(&mut self) -> Option<Chain> {
+        let leaves = ["var", "const", "while", "for", "return", "break", "continue"];
+        if leaves.contains(&self.nth(1)) {
+            self.block()?;
+            return Some(Chain::default());
+        }
         self.expect("{")?;
         let value = self.expression()?;
         self.expect("}")?;
-        self.expect("else")?;
-        match self.at("if") {
-            true => {
-                self.if_value()?;
-            }
-            false => {
-                self.expect("{")?;
-                self.expression()?;
-                self.expect("}")?;
-            }
-        }
         Some(value)
     }
 
@@ -1447,8 +1456,16 @@ impl Parser<'_> {
         while !self.at("}") && !self.eof() {
             let start = self.span().start;
             self.scoped(start, |p| {
-                if !p.eat("default") {
+                if p.at_ident() && p.nth(1) == "if" {
+                    let span = p.span();
+                    p.bump();
+                    let hint = Hint::Value(subject.clone());
+                    p.declare(span, LocalKind::Binding, p.name(span), Some(hint));
+                } else if !p.eat("default") {
                     p.pattern(&subject, None)?;
+                }
+                if p.eat("if") {
+                    p.expression()?;
                 }
                 p.expect("=>")?;
                 let block = p.at("{");
@@ -1485,7 +1502,7 @@ impl Parser<'_> {
     /// constant expression stopping before `|`.
     fn alternative(&mut self, subject: &Chain, slot: Option<(usize, usize)>) -> Option<()> {
         if !self.at_ident() {
-            return self.expr(Prec::BitwiseOr).map(drop);
+            return self.value_pattern();
         }
         let mut ahead = 1;
         while self.nth(ahead) == "::"
@@ -1528,7 +1545,16 @@ impl Parser<'_> {
             }
             return Some(());
         }
-        self.expr(Prec::BitwiseOr).map(drop)
+        self.value_pattern()
+    }
+
+    /// A value, or the values from one to another written `low..=high`.
+    fn value_pattern(&mut self) -> Option<()> {
+        self.expr(Prec::BitwiseOr)?;
+        if self.eat("..=") {
+            self.expr(Prec::BitwiseOr)?;
+        }
+        Some(())
     }
 
     fn asm(&mut self) -> Option<Chain> {
@@ -1589,6 +1615,24 @@ fn main() {
 
     fn texts<'a>(uses: impl Iterator<Item = &'a Use>) -> Vec<&'static str> {
         uses.map(|u| &SOURCE[u.span.start..u.span.end]).collect()
+    }
+
+    #[test]
+    fn patterns_guards_and_mutable_slices() {
+        let source = "fn sort_part(xs: &var [i32]) { xs.sort(); }
+fn kind(c: u8, n: i32) str {
+    var half = if n % 2 == 0 { n / 2 } else { return \"odd\"; };
+    for i in 1..=half { }
+    return match c {
+        'a'..='z' | '0'..='9' => \"plain\",
+        x if x > 127 => \"high\",
+        default => \"other\",
+    };
+}
+";
+        let module = parse(source);
+        assert!(module.errors.is_empty(), "{:?}", module.errors);
+        assert!(module.locals.iter().any(|l| l.name == "x" && l.kind == LocalKind::Binding));
     }
 
     #[test]
