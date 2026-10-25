@@ -814,4 +814,27 @@ fn main() {
             [": i32", ": bool", ": u8", ": f64", ": (u8, f64)", ": i64"]
         );
     }
+
+    #[test]
+    fn tuple_parts_have_their_type() {
+        let source = "fn main() {
+    var slopes: Array<(usize, u8), 2> = [(1, 1), (3, 1)];
+    var a = slopes[0].1;
+    var t: (f64, (bool, u8)) = (1.5, (true, 2));
+    var b = t.1.0;
+}
+";
+        let root = PathBuf::from("/p/main.zr");
+        let read = |_: &Path| Some(source.to_string());
+        let program = Program::load(std::slice::from_ref(&root), None, read);
+        let main = program.find(&root).unwrap();
+        let labels: Vec<String> = hints(&program, main)
+            .into_iter()
+            .map(|hint| match hint.label {
+                InlayHintLabel::String(label) => label,
+                _ => String::new(),
+            })
+            .collect();
+        assert_eq!(labels, [": u8", ": bool"]);
+    }
 }

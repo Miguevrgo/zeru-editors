@@ -12,7 +12,7 @@ use lsp_types::{
 use crate::Lines;
 use crate::lexer::{KEYWORDS, Kind, PRIMITIVES, lex};
 use crate::parser::{Item, ItemKind, LocalKind, UseKind};
-use crate::program::{BUILTINS, Def, Program, Ty};
+use crate::program::{BUILTINS, Def, Program, Ty, part};
 
 pub fn completion(
     program: &Program,
@@ -238,7 +238,7 @@ fn members(program: &Program, file: usize, ty: Ty) -> Vec<CompletionItem> {
         Ty::Static(f, owner) => (f, owner, false),
         Ty::Value(f, ty) => match program.struct_of(f, &ty) {
             Some((f, owner)) => (f, owner, true),
-            None => return Vec::new(),
+            None => return parts(&ty),
         },
     };
     let callable =
@@ -247,6 +247,18 @@ fn members(program: &Program, file: usize, ty: Ty) -> Vec<CompletionItem> {
         true => member.kind == ItemKind::Field || member.has_self && callable(member),
         false => member.kind == ItemKind::Method && !member.has_self && callable(member),
     })
+}
+
+/// The parts of a tuple, as `0` and `1` of `(i32, str)`, each with its type.
+fn parts(ty: &str) -> Vec<CompletionItem> {
+    let parts = (0..).map_while(|at| Some((at, part(ty, at)?)));
+    parts
+        .map(|(at, ty)| {
+            let mut item = entry(&at.to_string(), CompletionItemKind::FIELD, 1);
+            item.detail = Some(ty);
+            item
+        })
+        .collect()
 }
 
 /// The variants of an enum, the functions of a struct, or the public items
@@ -588,5 +600,21 @@ fn main() {
             edit(&complete(source, ": Ha"), "HashMap"),
             (0, 33, "HashMap".into())
         );
+    }
+
+    #[test]
+    fn tuple_parts_after_a_dot() {
+        let source = "fn main() {\n    var slopes: Array<(usize, u8), 2> = [(1, 1), (3, 1)];\n    var a = slopes[0].\n}\n";
+        let root = PathBuf::from("/p/main.zr");
+        let read = |_: &Path| Some(source.to_string());
+        let program = Program::load(std::slice::from_ref(&root), None, read);
+        let main = program.find(&root).unwrap();
+        let offset = source.find("[0].").unwrap() + 4;
+        let found = completion(&program, main, offset, true);
+        let parts: Vec<(&str, Option<&str>)> = found
+            .iter()
+            .map(|item| (item.label.as_str(), item.detail.as_deref()))
+            .collect();
+        assert_eq!(parts, [("0", Some("usize")), ("1", Some("u8"))]);
     }
 }

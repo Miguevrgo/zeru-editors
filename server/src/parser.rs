@@ -126,6 +126,7 @@ impl Chain {
 pub enum Op {
     Call,
     Index,
+    Part(usize),
     Slice,
     Unwrap,
     Literal,
@@ -1395,8 +1396,9 @@ impl Parser<'_> {
             "." => {
                 let dot = self.prev_end();
                 if *self.kind() == Kind::Int {
-                    self.bump();
-                    return Some(Chain::default());
+                    left.ops
+                        .push(Op::Part(self.bump().parse().unwrap_or(usize::MAX)));
+                    return Some(left);
                 }
                 if !self.at_ident() {
                     let object = left;

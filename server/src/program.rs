@@ -395,6 +395,7 @@ impl Program {
             };
             let written = match op {
                 Op::Index => element(&written)?,
+                Op::Part(at) => part(&written, *at)?,
                 Op::Slice => match strip(&written) {
                     "str" | "String" => "str".to_string(),
                     _ => format!("&[{}]", element(&written)?),
@@ -651,7 +652,7 @@ pub fn generic(ty: &str) -> (&str, Vec<&str>) {
 }
 
 /// Part `at` of a tuple type, as `str` is part 1 of `(i32, str)`.
-fn part(ty: &str, at: usize) -> Option<String> {
+pub fn part(ty: &str, at: usize) -> Option<String> {
     let inner = strip(ty).strip_prefix('(')?.strip_suffix(')')?;
     let listed = format!("_<{inner}>");
     generic(&listed).1.get(at).map(|part| part.to_string())
