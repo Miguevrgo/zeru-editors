@@ -1238,7 +1238,7 @@ impl Parser<'_> {
             Kind::Int | Kind::Float | Kind::Str => {
                 let ty = match self.kind() {
                     Kind::Float => "f64",
-                    Kind::Str if self.text[self.span().start..].starts_with('"') => "str",
+                    Kind::Str if self.text[self.span().start..].starts_with(['"', '`']) => "str",
                     _ => "i32",
                 };
                 self.bump();

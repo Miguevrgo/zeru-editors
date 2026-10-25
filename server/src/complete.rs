@@ -56,13 +56,15 @@ pub fn completion(
         let mut found = names(program, file, offset);
         found.retain(|item| match item.kind {
             Some(CompletionItemKind::KEYWORD) => PRIMITIVES.contains(&item.label.as_str()),
-            kind => [CompletionItemKind::STRUCT, CompletionItemKind::ENUM]
-                .into_iter()
-                .chain([
+            kind => kind.is_some_and(|kind| {
+                [
+                    CompletionItemKind::STRUCT,
+                    CompletionItemKind::ENUM,
                     CompletionItemKind::TYPE_PARAMETER,
                     CompletionItemKind::MODULE,
-                ])
-                .any(|wanted| kind == Some(wanted)),
+                ]
+                .contains(&kind)
+            }),
         });
         found
     } else {
@@ -329,10 +331,10 @@ fn importable(program: &Program, file: usize) -> Vec<CompletionItem> {
         let relative = relative.with_extension("");
         let path = format!("std.{}", relative.to_string_lossy().replace('/', "."));
         let imports = source.module.imports.iter().zip(&source.imports);
-        let imported = imports
+        let imported: Vec<_> = imports
             .filter(|(_, target)| **target == Some(f))
-            .map(|(import, _)| import);
-        let imported: Vec<_> = imported.collect();
+            .map(|(import, _)| import)
+            .collect();
         if imported.is_empty() {
             let mut item = declared(program, Def::Module(f), 4);
             item.additional_text_edits = Some(vec![import_edit(&source.text, &path, None)]);

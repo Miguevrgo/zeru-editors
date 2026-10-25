@@ -1,6 +1,7 @@
-//! The compiler's check, `zeru check --json <file>`, run in a child process
-//! whose output a thread of its own reads, so requests are never kept
-//! waiting. Each line it prints is one error.
+//! The compiler and its std, found as `find_zeru` says. `zeru check --json
+//! <file>` runs in a child process whose output a thread of its own reads,
+//! so requests are never kept waiting, each line one error; `zeru fmt -`
+//! formats.
 
 use std::io::{self, BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};

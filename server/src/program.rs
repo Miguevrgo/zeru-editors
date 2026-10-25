@@ -36,8 +36,9 @@ pub enum Ty {
 }
 
 /// The file of the program that declares what the compiler builds in: `Vec`,
-/// `String`, `str`, `T?` and `T!` as `Str`, `Optional<T>` and `Result<T>`,
-/// and the print functions.
+/// `String`, the methods of `str`, slices, integers, `T?` and `T!` as `Str`,
+/// `Slice<T>`, `Int<T>`, `Optional<T>` and `Result<T>`, the print functions,
+/// `assert` and `replace`.
 pub const BUILTINS: usize = 0;
 
 const INTEGERS: [&str; 10] = [

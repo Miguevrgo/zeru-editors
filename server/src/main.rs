@@ -324,7 +324,7 @@ impl Server {
     fn rename(&self, at: TextDocumentPositionParams, name: String) -> Option<WorkspaceEdit> {
         let (program, file, offset) = self.locate(&at)?;
         let (_, def) = program.at(file, offset)?;
-        if program.files[program.declared(def).0].std || matches!(def, program::Def::Module(_)) {
+        if program.files[program.declared(def).0].std || matches!(def, Def::Module(_)) {
             return None;
         }
         let mut changes: HashMap<Uri, Vec<TextEdit>> = HashMap::new();
@@ -689,8 +689,6 @@ impl<'t> Lines<'t> {
 
 #[cfg(test)]
 mod tests {
-    use std::path::{Path, PathBuf};
-
     use super::*;
 
     #[test]
@@ -703,51 +701,21 @@ fn main() {
     area(*&w, h);
 }
 ";
-        let root = PathBuf::from("/p/main.zr");
-        let read = |_: &Path| Some(source.to_string());
-        let program = Program::load(std::slice::from_ref(&root), None, read);
-        let main = program.find(&root).unwrap();
-        let labels: Vec<String> = hints(&program, main)
-            .into_iter()
-            .map(|hint| match hint.label {
-                InlayHintLabel::String(label) => label,
-                _ => String::new(),
-            })
-            .collect();
+        let labels = labels(source);
         assert_eq!(labels, ["w:", ": i32", ": i32"]);
     }
 
     #[test]
     fn slice_methods_have_their_type() {
         let source = "fn main() {\n    var v: Vec<i64> = [1];\n    var part = v[..];\n    var total = part.sum();\n}\n";
-        let root = PathBuf::from("/p/main.zr");
-        let read = |_: &Path| Some(source.to_string());
-        let program = Program::load(std::slice::from_ref(&root), None, read);
-        let main = program.find(&root).unwrap();
-        let labels: Vec<String> = hints(&program, main)
-            .into_iter()
-            .map(|hint| match hint.label {
-                InlayHintLabel::String(label) => label,
-                _ => String::new(),
-            })
-            .collect();
+        let labels = labels(source);
         assert_eq!(labels, [": &[i64]", ": i64"]);
     }
 
     #[test]
     fn parentheses_around_one_name_only_group_it() {
         let source = "fn pair() (i32, (bool, u8)) { return (1, (true, 2)); }\nfn main() {\n    var (n, ((flag), _)) = pair();\n}\n";
-        let root = PathBuf::from("/p/main.zr");
-        let read = |_: &Path| Some(source.to_string());
-        let program = Program::load(std::slice::from_ref(&root), None, read);
-        let main = program.find(&root).unwrap();
-        let labels: Vec<String> = hints(&program, main)
-            .into_iter()
-            .map(|hint| match hint.label {
-                InlayHintLabel::String(label) => label,
-                _ => String::new(),
-            })
-            .collect();
+        let labels = labels(source);
         assert_eq!(labels, [": i32", ": bool"]);
     }
 
@@ -773,17 +741,7 @@ fn main() {
     #[test]
     fn number_limits_have_their_type() {
         let source = "fn main() {\n    var low = i64.MAX;\n    var high = f32.MIN;\n}\n";
-        let root = PathBuf::from("/p/main.zr");
-        let read = |_: &Path| Some(source.to_string());
-        let program = Program::load(std::slice::from_ref(&root), None, read);
-        let main = program.find(&root).unwrap();
-        let labels: Vec<String> = hints(&program, main)
-            .into_iter()
-            .map(|hint| match hint.label {
-                InlayHintLabel::String(label) => label,
-                _ => String::new(),
-            })
-            .collect();
+        let labels = labels(source);
         assert_eq!(labels, [": i64", ": f32"]);
     }
 
@@ -798,17 +756,7 @@ fn main() {
     for (x, y) in zip(xs, ys) {}
 }
 ";
-        let root = PathBuf::from("/p/main.zr");
-        let read = |_: &Path| Some(source.to_string());
-        let program = Program::load(std::slice::from_ref(&root), None, read);
-        let main = program.find(&root).unwrap();
-        let labels: Vec<String> = hints(&program, main)
-            .into_iter()
-            .map(|hint| match hint.label {
-                InlayHintLabel::String(label) => label,
-                _ => String::new(),
-            })
-            .collect();
+        let labels = labels(source);
         assert_eq!(
             labels,
             [": i32", ": bool", ": u8", ": f64", ": (u8, f64)", ": i64"]
@@ -824,17 +772,28 @@ fn main() {
     var b = t.1.0;
 }
 ";
+        let labels = labels(source);
+        assert_eq!(labels, [": u8", ": bool"]);
+    }
+
+    #[test]
+    fn raw_strings_and_exponents_have_their_type() {
+        let labels = labels("fn main() {\n    var r = `raw`;\n    var e = 1e5;\n}\n");
+        assert_eq!(labels, [": str", ": f64"]);
+    }
+
+    /// The inlay hints of the one file `source`, as their labels.
+    fn labels(source: &str) -> Vec<String> {
         let root = PathBuf::from("/p/main.zr");
         let read = |_: &Path| Some(source.to_string());
         let program = Program::load(std::slice::from_ref(&root), None, read);
         let main = program.find(&root).unwrap();
-        let labels: Vec<String> = hints(&program, main)
+        hints(&program, main)
             .into_iter()
             .map(|hint| match hint.label {
                 InlayHintLabel::String(label) => label,
                 _ => String::new(),
             })
-            .collect();
-        assert_eq!(labels, [": u8", ": bool"]);
+            .collect()
     }
 }

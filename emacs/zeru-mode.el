@@ -23,7 +23,7 @@
       (,(regexp-opt types 'symbols) . font-lock-type-face)
       ("\\_<[A-Z][a-z][A-Za-z0-9_]*\\_>" . font-lock-type-face)
       (,(regexp-opt constants 'symbols) . font-lock-constant-face)
-      ("\\_<[0-9][0-9a-fA-FxXbBoO_.]*\\([eE][+-]?[0-9]+\\)?\\_>" . font-lock-constant-face)))
+      ("\\_<[0-9][0-9a-fA-FxXbBoO_]*\\(\\.[0-9][0-9_]*\\)?\\([eE][+-]?[0-9]+\\)?\\_>" . font-lock-constant-face)))
   "Font lock keywords for `zeru-mode'.")
 
 (defun zeru-indent-line ()

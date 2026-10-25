@@ -28,7 +28,8 @@ Highlighting, indentation and a language server for the
 
 It needs `zeru` in `~/.zeru/bin` or on the `PATH`, installed with the
 [Zeru installer](https://github.com/Miguevrgo/Zeru#-installation), to report the compiler's
-errors and to format. `zeru update` installs the latest build. Building the server needs
+errors and to format. `zeru update --stable` installs the latest release, and
+`zeru update` the latest build of main. Building the server needs
 Rust (`cargo`).
 
 ## Neovim

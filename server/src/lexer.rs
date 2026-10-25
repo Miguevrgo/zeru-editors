@@ -171,9 +171,12 @@ fn number(rest: &str, after_dot: bool) -> (usize, Kind) {
         len += 1 + digits(&rest[len + 1..]);
         kind = Kind::Float;
     }
-    let exponent = rest[..len].ends_with(['e', 'E']) && rest[len..].starts_with(['-', '+']);
-    if exponent && !rest.starts_with("0x") {
+    let hex = rest.starts_with("0x");
+    let signed = rest[..len].ends_with(['e', 'E']) && rest[len..].starts_with(['-', '+']);
+    if signed && !hex {
         len += 1 + digits(&rest[len + 1..]);
+    }
+    if !hex && rest[..len].contains(['e', 'E']) {
         kind = Kind::Float;
     }
     (len, kind)
@@ -204,7 +207,7 @@ mod tests {
     #[test]
     fn literals_and_comments() {
         let found = kinds(
-            "var s = \"a\\\"b\"; // note\n/* block */ 'x' '\\n' `raw\nline` 2.5e-3 t.0.1 0..n",
+            "var s = \"a\\\"b\"; // note\n/* block */ 'x' '\\n' `raw\nline` 2.5e-3 1e5 0xE5 t.0.1 0..n",
         );
         let expected = [
             (Kind::Keyword, "var"),
@@ -218,6 +221,8 @@ mod tests {
             (Kind::Str, "'\\n'"),
             (Kind::Str, "`raw\nline`"),
             (Kind::Float, "2.5e-3"),
+            (Kind::Float, "1e5"),
+            (Kind::Int, "0xE5"),
             (Kind::Ident, "t"),
             (Kind::Op, "."),
             (Kind::Int, "0"),

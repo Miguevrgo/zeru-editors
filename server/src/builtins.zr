@@ -574,6 +574,30 @@ pub struct String {
     // Removes all the text, keeping the memory for new text.
     fn clear(var self) {}
 
+    // Returns an empty String with room for `capacity` bytes.
+    fn with_capacity(capacity: usize) String {}
+
+    // Returns how many bytes fit before it grows.
+    fn capacity(self) usize {}
+
+    // Makes room for `additional` more bytes.
+    fn reserve(var self, additional: usize) {}
+
+    // Gives back the memory it does not use.
+    fn shrink_to_fit(var self) {}
+
+    // Removes and returns the last byte, or None when empty.
+    fn pop(var self) u8? {}
+
+    // Puts `byte` at `index`, moving the rest one place on.
+    fn insert(var self, index: usize, byte: u8) {}
+
+    // Removes and returns the byte at `index`.
+    fn remove(var self, index: usize) u8 {}
+
+    // Returns the byte at `index`, or None past the end.
+    fn get(self, index: usize) (&u8)? {}
+
     // Returns the length in bytes.
     fn len(self) usize {}
 
