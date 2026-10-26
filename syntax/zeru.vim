@@ -8,6 +8,7 @@ syntax keyword zeruConstant None Some Ok Err
 syntax keyword zeruType i8 i16 i32 i64 isize u8 u16 u32 u64 usize f32 f64 bool void str
 syntax match zeruType "\<[A-Z][a-z][A-Za-z0-9_]*\>"
 syntax keyword zeruSelf self
+syntax match zeruPreProc "#test\>"
 
 syntax match zeruOperator "[-+*/%&|^<>!=]=*"
 syntax match zeruOperator "&&"
@@ -34,6 +35,7 @@ syntax match zeruFloat "\<\d[0-9_]*\.\d[0-9_]*\([eE][+-]\=\d\+\)\=\>"
 syntax match zeruFloat "\<\d[0-9_]*[eE][+-]\=\d\+\>"
 
 highlight default link zeruKeyword Keyword
+highlight default link zeruPreProc PreProc
 highlight default link zeruBoolean Boolean
 highlight default link zeruConstant Constant
 highlight default link zeruType Type

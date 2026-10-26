@@ -171,6 +171,7 @@ pub fn parse(text: &str) -> Module {
         no_struct: false,
         depth: 0,
         nesting: 0,
+        imports_from: 0,
     };
     parser.report_illegal();
     parser.program();
@@ -241,6 +242,7 @@ struct Parser<'a> {
     no_struct: bool,
     depth: usize,
     nesting: usize,
+    imports_from: usize,
 }
 
 impl Parser<'_> {
@@ -497,12 +499,49 @@ impl Parser<'_> {
                 "var" => self.error_here(
                     "Global variables ('var') are not allowed. Use 'const' for constants or move 'var' inside a function",
                 ),
+                "#test" => self.tests(),
+                "test" => self.error_here("Tests go inside '#test { }', at the end of the file"),
                 _ => self.item(),
             };
             if parsed.is_none() {
                 self.skip_item();
             }
         }
+    }
+
+    /// `#test { }`: its items, and each `test("name") { body }` as a block.
+    fn tests(&mut self) -> Option<()> {
+        self.bump();
+        self.expect("{")?;
+        self.depth = 0;
+        self.imports_from = self.module.items.len();
+        while !self.eof() && !self.at("}") {
+            self.panic = false;
+            let parsed = match self.peek() {
+                "test" => self.test(),
+                _ => self.item(),
+            };
+            if parsed.is_none() {
+                self.skip_item();
+            }
+        }
+        self.expect("}")?;
+        if !self.eof() {
+            self.error_here::<()>("'#test' goes once, at the end of the file");
+        }
+        Some(())
+    }
+
+    fn test(&mut self) -> Option<()> {
+        let start = self.span().start;
+        self.bump();
+        self.expect("(")?;
+        if self.tokens[self.pos.min(self.tokens.len() - 1)].kind != Kind::Str {
+            return self.error_here(format!("Expected the test's name, found '{}'", self.peek()));
+        }
+        self.bump();
+        self.expect(")")?;
+        self.scoped(start, |p| p.block())
     }
 
     fn skip_item(&mut self) {
@@ -541,7 +580,10 @@ impl Parser<'_> {
     }
 
     fn import(&mut self) -> Option<()> {
-        if self.module.items.iter().any(|item| item.owner.is_none()) {
+        if self.module.items[self.imports_from..]
+            .iter()
+            .any(|item| item.owner.is_none())
+        {
             self.error_here::<()>("Imports must come before any other code");
         }
         self.bump();
@@ -1751,6 +1793,26 @@ fn kind(c: u8, n: i32) str {
             empty.map(|u| &u.kind),
             Some(UseKind::Member { .. })
         ));
+    }
+
+    #[test]
+    fn test_blocks_hold_items_and_tests() {
+        let module = parse(
+            "fn main() {}\n#test {\n    import std.fs;\n    test(\"adds\") {\n        var n = 1;\n    }\n    fn helper() {}\n}\n",
+        );
+        assert!(module.errors.is_empty(), "{:?}", module.errors);
+        assert!(module.items.iter().any(|i| i.name == "helper"));
+        assert!(module.locals.iter().any(|l| l.name == "n"));
+        let misplaced = parse("test(\"x\") {}\n#test {}\nfn after() {}\n#tset {}\n");
+        let messages: Vec<&str> = misplaced.errors.iter().map(|(_, m)| m.as_str()).collect();
+        assert_eq!(
+            messages,
+            [
+                "Tests go inside '#test { }', at the end of the file",
+                "'#test' goes once, at the end of the file",
+                "Unexpected '#tset', expected '#test'"
+            ]
+        );
     }
 
     #[test]

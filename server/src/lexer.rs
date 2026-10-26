@@ -85,6 +85,14 @@ pub fn lex(text: &str) -> Vec<Token> {
                     Kind::Illegal("Unterminated block comment".into())
                 }
             }
+        } else if c == b'#' {
+            at += 1 + rest[1..]
+                .find(|c: char| !c.is_ascii_alphanumeric() && c != '_')
+                .unwrap_or(rest.len() - 1);
+            match &text[start..at] {
+                "#test" => Kind::Keyword,
+                word => Kind::Illegal(format!("Unexpected '{word}', expected '#test'")),
+            }
         } else if c.is_ascii_alphabetic() || c == b'_' {
             at += rest
                 .find(|c: char| !c.is_ascii_alphanumeric() && c != '_')

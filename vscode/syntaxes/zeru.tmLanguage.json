@@ -74,6 +74,10 @@
                     "match": "\\b(if|else|while|for|in|break|continue|return|match|default)\\b"
                 },
                 {
+                    "name": "keyword.other.test.zeru",
+                    "match": "#test\\b"
+                },
+                {
                     "name": "keyword.declaration.zeru",
                     "match": "\\b(fn|var|const|pub|struct|enum|trait|import|as|asm|volatile)\\b"
                 },

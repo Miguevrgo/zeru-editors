@@ -59,6 +59,7 @@ add-highlighter shared/zeru/raw_string region '`' '`' fill string
 
 add-highlighter shared/zeru/code/ regex "'(?:\\\\(?:[ntr0\\\\'""]|x[0-9a-fA-F]{2})|[^'\\\\])'" 0:string
 
+add-highlighter shared/zeru/code/ regex '#test\b' 0:meta
 add-highlighter shared/zeru/code/ regex '\b(?:fn|var|const|pub|import|struct|enum|trait)\b' 0:keyword
 add-highlighter shared/zeru/code/ regex '\b(?:if|else|while|for|in|return|break|continue|match|default|as|asm|volatile)\b' 0:keyword
 add-highlighter shared/zeru/code/ regex '\b(?:i8|i16|i32|i64|isize|u8|u16|u32|u64|usize|f32|f64|bool|void|str)\b' 0:type

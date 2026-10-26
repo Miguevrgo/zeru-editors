@@ -19,7 +19,8 @@
         (types '("i8" "i16" "i32" "i64" "isize" "u8" "u16" "u32" "u64" "usize" "f32" "f64"
                  "bool" "void" "str"))
         (constants '("true" "false" "None" "Some" "Ok" "Err" "self")))
-    `((,(regexp-opt keywords 'symbols) . font-lock-keyword-face)
+    `(("#test\\_>" . font-lock-preprocessor-face)
+      (,(regexp-opt keywords 'symbols) . font-lock-keyword-face)
       (,(regexp-opt types 'symbols) . font-lock-type-face)
       ("\\_<[A-Z][a-z][A-Za-z0-9_]*\\_>" . font-lock-type-face)
       (,(regexp-opt constants 'symbols) . font-lock-constant-face)
