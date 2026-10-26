@@ -485,6 +485,9 @@ impl Server {
                 });
                 let mut diagnostic = error(range, found["message"].as_str()?.to_string());
                 diagnostic.related_information = Some(related.collect());
+                if found["severity"] == "warning" {
+                    diagnostic.severity = Some(DiagnosticSeverity::WARNING);
+                }
                 Some((path, diagnostic))
             })
             .collect();
