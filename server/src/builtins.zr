@@ -598,6 +598,42 @@ pub struct String {
     // Returns the byte at `index`, or None past the end.
     fn get(self, index: usize) (&u8)? {}
 
+    // Sorts the bytes from smallest to largest.
+    fn sort(var self) {}
+
+    // Exchanges the bytes at `i` and `j`.
+    fn swap(var self, i: usize, j: usize) {}
+
+    // Puts the bytes in the opposite order.
+    fn reverse(var self) {}
+
+    // Moves every byte `n` places to the left; those that fall off the start
+    // come back at the end.
+    fn rotate_left(var self, n: usize) {}
+
+    // Moves every byte `n` places to the right; those that fall off the end
+    // come back at the start.
+    fn rotate_right(var self, n: usize) {}
+
+    // Removes each byte equal to the one before it.
+    fn dedup(var self) {}
+
+    // Returns views of the bytes `n` at a time, the last one shorter when
+    // they do not divide evenly.
+    fn chunks(self, n: usize) Vec<&[u8]> {}
+
+    // Returns a view of every run of `n` bytes next to each other.
+    fn windows(self, n: usize) Vec<&[u8]> {}
+
+    // Returns the bytes added up, or 0 when there are none.
+    fn sum(self) u8 {}
+
+    // Returns the smallest byte, or None when there are none.
+    fn min(self) u8? {}
+
+    // Returns the largest byte, or None when there are none.
+    fn max(self) u8? {}
+
     // Returns the length in bytes.
     fn len(self) usize {}
 

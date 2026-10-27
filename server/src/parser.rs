@@ -924,6 +924,11 @@ impl Parser<'_> {
             }
             return parsed;
         }
+        if self.eat("_") {
+            self.expect("=")?;
+            self.expression()?;
+            return self.expect(";");
+        }
         let name = self.ident("a name")?;
         let local = self.declare(name, LocalKind::Var, String::new(), None);
         self.module.locals[local].from = usize::MAX;
@@ -982,10 +987,11 @@ impl Parser<'_> {
             if !p.at("(") {
                 let name = p.ident("a name")?;
                 match p.eat(",") {
-                    true => {
+                    true if p.name(name) != "_" => {
                         let index = p.declare(name, LocalKind::Binding, p.name(name), None);
                         p.module.locals[index].hint = Some(Hint::Written("usize".into()));
                     }
+                    true => {}
                     false => single = Some(name),
                 }
             }
@@ -1015,12 +1021,16 @@ impl Parser<'_> {
             let walked = p.condition()?;
             let hint = match p.eat("..") || p.eat("..=") {
                 true => {
-                    p.condition()?;
-                    Hint::Written("i32".into())
+                    let end = p.condition()?;
+                    match walked == Chain::typed("i32") {
+                        true => Hint::Value(end),
+                        false => Hint::Value(walked),
+                    }
                 }
                 false => Hint::Element(walked),
             };
             match single {
+                Some(name) if p.name(name) == "_" => {}
                 Some(name) => {
                     let local = p.declare(name, LocalKind::Binding, p.name(name), Some(hint));
                     p.module.locals[local].from = p.prev_end();

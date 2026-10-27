@@ -472,7 +472,6 @@ impl Server {
         let found: Vec<(PathBuf, Diagnostic)> = report
             .errors
             .iter()
-            .filter(|found| found["message"] != "Missing 'fn main'")
             .filter_map(|found| {
                 let (path, range) = Self::place(dir, found)?;
                 let notes = found["notes"].as_array().into_iter().flatten();
@@ -739,6 +738,13 @@ fn main() {
             })
             .collect();
         assert_eq!(labels, [": i32"]);
+    }
+
+    #[test]
+    fn a_range_counts_in_the_type_of_its_bounds() {
+        let source = "fn main() {\n    var v: Vec<u8> = Vec.new();\n    var _ = v.len();\n    for i in 0..v.len() {}\n    for j in 0..3 {}\n    for _ in 0..3 {}\n}\n";
+        let labels = labels(source);
+        assert_eq!(labels, [": usize", ": i32"]);
     }
 
     #[test]
