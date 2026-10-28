@@ -463,7 +463,7 @@ mod tests {
     const SOURCE: &str = "import std.collections.hashmap::{HashMap};
 fn main() {
     var m: HashMap<i64, str> = HashMap.new();
-    m.get(1);
+    m.get(&1);
     var v: Vec<i32> = Vec.new();
     v.push(1);
     println(\"{}\", v.len());
@@ -488,9 +488,9 @@ fn main() {
         };
         let get = hover("m.get");
         assert!(get.starts_with(
-            "```zeru\nHashMap\npub fn get(self, key: K) (&V)?\n```\n\n---\n\nReturns a reference"
+            "```zeru\nHashMap\npub fn get(self, key: &K) (&V)?\n```\n\n---\n\nReturns a reference"
         ));
-        assert!(get.ends_with("println(\"{}\", names.get(2).is_none()); // true\n```"));
+        assert!(get.ends_with("println(\"{}\", names.get(&2).is_none()); // true\n```"));
         assert!(hover("v.push").contains("Adds `value` at the end"));
         assert!(hover("println").contains("then a line break"));
         assert!(hover("exit").contains("End the process"));
