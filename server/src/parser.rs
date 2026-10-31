@@ -1389,15 +1389,24 @@ impl Parser<'_> {
         let typed = [
             "&", "var", "*", "(", ")", "<", ">", ",", "?", "!", "[", "]", "::", "str", "fn",
         ];
-        (0..)
-            .map(|ahead| {
-                (
-                    self.nth(ahead),
-                    self.tokens.get(self.pos + ahead).map(|t| &t.kind),
-                )
-            })
-            .find(|(text, kind)| !typed.contains(text) && *kind != Some(&Kind::Ident))
-            .is_some_and(|(text, _)| text == "{")
+        let mut depth = 0;
+        for ahead in 0.. {
+            let text = self.nth(ahead);
+            let kind = self.tokens.get(self.pos + ahead).map(|t| &t.kind);
+            match text {
+                "(" | "[" => depth += 1,
+                ")" | "]" => depth -= 1,
+                "{" if depth == 0 => {
+                    let ident = self.tokens.get(self.pos + ahead + 1).map(|t| &t.kind);
+                    return !(ident == Some(&Kind::Ident) && self.nth(ahead + 2) == ":");
+                }
+                _ => {}
+            }
+            if !typed.contains(&text) && kind != Some(&Kind::Ident) {
+                return false;
+            }
+        }
+        false
     }
 
     fn path_or_literal(&mut self) -> Option<Chain> {
@@ -1779,11 +1788,12 @@ fn main() {
     };
     var n = apply(fn(x) x * 2, fn(y) { total += y; }, square(3));
     var p = apply(fn(z) (z + 1) * 2, fn(var w: i32) i32 { return w; }, 1);
+    var q = each(fn(s) (Point { x: s }), fn(t) Vec<i32> { return t; });
 }
 ";
         let module = parse(source);
         assert!(module.errors.is_empty(), "{:?}", module.errors);
-        for name in ["x", "y", "z", "w"] {
+        for name in ["x", "y", "z", "w", "s", "t"] {
             assert!(
                 module
                     .locals
