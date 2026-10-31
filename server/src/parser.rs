@@ -1144,6 +1144,14 @@ impl Parser<'_> {
                     p.bump();
                     p.list(")", Self::ty_inner)?;
                 }
+                "fn" => {
+                    p.bump();
+                    p.expect("(")?;
+                    p.list(")", Self::ty_inner)?;
+                    if ![",", ")", ">", ";", "=", "{"].contains(&p.peek()) {
+                        p.ty_inner()?;
+                    }
+                }
                 _ if p.at_ident() => {
                     let primitive = PRIMITIVES.contains(&p.peek());
                     p.path(UseKind::Type)?;
@@ -1340,8 +1348,56 @@ impl Parser<'_> {
             "match" => self.match_(),
             "if" => self.if_value(),
             "asm" => self.asm(),
+            "fn" => self.closure(),
             _ => self.error_here(format!("Expected an expression, found '{}'", self.found())),
         }
+    }
+
+    /// `fn(x: i32) i32 { body }` or `fn(x) x * 2`: its parameters are
+    /// locals of its own scope.
+    fn closure(&mut self) -> Option<Chain> {
+        let start = self.span().start;
+        self.bump();
+        self.scoped(start, |p| {
+            p.expect("(")?;
+            p.list(")", |p| {
+                let start = p.span().start;
+                p.eat("var");
+                let name = p.ident("parameter name")?;
+                let ty = match p.eat(":") {
+                    true => Some(p.ty()?),
+                    false => None,
+                };
+                let decl = p.slice(start);
+                p.declare(name, LocalKind::Param, decl, ty.map(Hint::Written));
+                Some(())
+            })?;
+            if !p.at("{") && p.returns_before_block() {
+                p.ty()?;
+            }
+            match p.at("{") {
+                true => p.block(),
+                false => p.expression().map(drop),
+            }
+        })?;
+        Some(Chain::default())
+    }
+
+    /// Whether the tokens next read as a type followed by `{`, the return
+    /// type of a closure whose body is a block.
+    fn returns_before_block(&self) -> bool {
+        let typed = [
+            "&", "var", "*", "(", ")", "<", ">", ",", "?", "!", "[", "]", "::", "str", "fn",
+        ];
+        (0..)
+            .map(|ahead| {
+                (
+                    self.nth(ahead),
+                    self.tokens.get(self.pos + ahead).map(|t| &t.kind),
+                )
+            })
+            .find(|(text, kind)| !typed.contains(text) && *kind != Some(&Kind::Ident))
+            .is_some_and(|(text, _)| text == "{")
     }
 
     fn path_or_literal(&mut self) -> Option<Chain> {
@@ -1710,6 +1766,32 @@ fn kind(c: u8, n: i32) str {
                 .iter()
                 .any(|l| l.name == "x" && l.kind == LocalKind::Binding)
         );
+    }
+
+    #[test]
+    fn closures_and_fn_types() {
+        let source = "fn apply(f: fn(i32) i32, g: fn(i32), x: i32) i32 { return f(x); }
+fn main() {
+    var total = 0;
+    var square = fn(x: i32) i32 {
+        var y = x * x;
+        return y;
+    };
+    var n = apply(fn(x) x * 2, fn(y) { total += y; }, square(3));
+    var p = apply(fn(z) (z + 1) * 2, fn(var w: i32) i32 { return w; }, 1);
+}
+";
+        let module = parse(source);
+        assert!(module.errors.is_empty(), "{:?}", module.errors);
+        for name in ["x", "y", "z", "w"] {
+            assert!(
+                module
+                    .locals
+                    .iter()
+                    .any(|l| l.name == name && l.kind == LocalKind::Param),
+                "{name}"
+            );
+        }
     }
 
     #[test]
