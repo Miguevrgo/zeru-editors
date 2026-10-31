@@ -15,7 +15,8 @@ Highlighting, indentation and a language server for the
 
 `zeru-lsp`, built from `server/`, gives:
 
-- syntax errors as you type, and the compiler's own errors when a file is opened or saved
+- syntax errors as you type, and the compiler's own errors when a file is opened or saved,
+  with its help and, when it names one edit, a quick fix that makes it
 - hover with signatures and documentation, go to definition, references and rename
 - inferred types shown after each name, as `var n = 3` getting `: i32`, and parameter
   names before arguments
