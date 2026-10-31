@@ -484,6 +484,9 @@ fn main() {
     var v: Vec<i32> = Vec.new();
     v.push(1);
     println(\"{}\", v.len());
+    var a: Array<i32, 2> = [2, 1];
+    a.sort();
+    \"ab\".any(fn(c) c == 97);
     exit(0);
 }
 ";
@@ -511,6 +514,8 @@ fn main() {
         assert!(hover("v.push").contains("Adds `value` at the end"));
         assert!(hover("println").contains("then a line break"));
         assert!(hover("exit").contains("End the process"));
+        assert!(hover("a.sort").contains("Sorts the elements"));
+        assert!(hover("\"ab\".any").contains("accepts some byte"));
 
         let found = completion(&program, main, at("v."), true);
         let push = found.iter().find(|item| item.label == "push").unwrap();

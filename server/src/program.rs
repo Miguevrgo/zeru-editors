@@ -36,7 +36,7 @@ pub enum Ty {
 }
 
 /// The file of the program that declares what the compiler builds in: `Vec`,
-/// `String`, the methods of `str`, slices, integers, `T?` and `T!` as `Str`,
+/// `String`, the methods of `str`, slices and arrays, integers, `T?` and `T!` as `Str`,
 /// `Slice<T>`, `Int<T>`, `Optional<T, U>` (`U` is `T` read through a
 /// reference) and `Result<T>`, the print functions, `assert` and `replace`.
 pub const BUILTINS: usize = 0;
@@ -56,6 +56,9 @@ fn builtin(ty: &str) -> Option<(&'static str, Vec<&str>)> {
     }
     if let Some(inner) = ty.strip_prefix('[').and_then(|ty| ty.strip_suffix(']')) {
         return Some(("Slice", vec![inner]));
+    }
+    if let ("Array", args) = generic(ty) {
+        return Some(("Slice", vec![args[0]]));
     }
     if INTEGERS.contains(&ty) {
         return Some(("Int", vec![ty]));

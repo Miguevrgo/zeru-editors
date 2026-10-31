@@ -432,7 +432,8 @@ pub struct Vec<T> {
 // A view of some elements of an array or a Vec, as `v[1..3]` gives, of
 // type `&[T]`. It copies nothing and only reads. `&var v[1..3]` gives one
 // that writes them too, of type `&var [T]`, which also has `sort`, `sort_by`,
-// `swap`, `reverse`, `rotate_left` and `rotate_right`.
+// `swap`, `reverse`, `rotate_left` and `rotate_right`. An array has all of
+// these methods, those that reorder when it is declared with var.
 //
 // # Examples
 //
@@ -855,6 +856,24 @@ struct Str {
     // println("{}", "pi".parse_float().unwrap_err()); // 22
     // ```
     fn parse_float(self) f64! {}
+
+    // Returns a new Vec of what `f` returns for each byte.
+    fn map<U>(self, f: fn(u8) U) Vec<U> {}
+
+    // Returns the bytes `keep` accepts, as a String.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // println("{}", "a-b-c".filter(fn(c) c != '-')); // abc
+    // ```
+    fn filter(self, keep: fn(u8) bool) String {}
+
+    // Returns whether `f` accepts some byte.
+    fn any(self, f: fn(u8) bool) bool {}
+
+    // Returns whether `f` accepts every byte; true when there are none.
+    fn all(self, f: fn(u8) bool) bool {}
 }
 
 // `T?`: a value of type `T`, or None.
