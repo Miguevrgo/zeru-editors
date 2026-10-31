@@ -1018,6 +1018,17 @@ pub fn println(format: str) {}
 // ```
 pub fn replace<T>(place: &var T, value: T) T {}
 
+// The text `print` would write for `format` and the values after it, as a
+// String.
+//
+// # Examples
+//
+// ```zeru
+// var message = format("{} of {} done", 3, 10);
+// println("{}", message.len()); // 12
+// ```
+pub fn format(format: str) String {}
+
 // Writes `format` to stderr as `print` does.
 pub fn eprint(format: str) {}
 

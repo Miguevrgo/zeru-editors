@@ -69,7 +69,7 @@ add-highlighter shared/zeru/code/ regex '\b(?:true|false|None|Some|Ok|Err)\b' 0:
 add-highlighter shared/zeru/code/ regex '\bself\b' 0:variable
 add-highlighter shared/zeru/code/ regex '\bfn\h+([A-Za-z_][A-Za-z0-9_]*)' 1:function
 add-highlighter shared/zeru/code/ regex '\b(?:0x[0-9a-fA-F_]+|0b[01_]+|0o[0-7_]+|[0-9][0-9_]*(?:\.[0-9][0-9_]*)?(?:[eE][-+]?[0-9_]+)?)\b' 0:value
-add-highlighter shared/zeru/code/ regex '\b(?:print|println|eprint|eprintln|assert|exit|zip|replace)\b(?=\()' 0:builtin
+add-highlighter shared/zeru/code/ regex '\b(?:print|println|eprint|eprintln|format|assert|exit|zip|replace)\b(?=\()' 0:builtin
 
 # Commands
 # ‾‾‾‾‾‾‾‾
