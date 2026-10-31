@@ -54,6 +54,7 @@ add-highlighter shared/zeru/block_comment region '/\*' '\*/' fill comment
 add-highlighter shared/zeru/string region '"' (?<!\\)(\\\\)*" group
 add-highlighter shared/zeru/string/ fill string
 add-highlighter shared/zeru/string/ regex '\\(?:[ntr0\\''"]|x[0-9a-fA-F]{2})' 0:meta
+add-highlighter shared/zeru/string/ regex '\{\{|\}\}|\{(?::[^{}"]*)?\}' 0:meta
 
 add-highlighter shared/zeru/raw_string region '`' '`' fill string
 

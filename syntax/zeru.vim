@@ -22,10 +22,11 @@ syntax region zeruCommentLine start="//" end="$" contains=@Spell,zeruTodo
 syntax region zeruCommentBlock start="/\*" end="\*/" contains=@Spell,zeruTodo
 syntax keyword zeruTodo TODO FIXME XXX NOTE contained
 
-syntax region zeruString start='"' skip='\\\\\|\\"' end='"' contains=zeruEscape
+syntax region zeruString start='"' skip='\\\\\|\\"' end='"' contains=zeruEscape,zeruFormat
 syntax region zeruRawString start='`' end='`'
 syntax match zeruChar "'\(\\x\x\x\|\\.\|[^'\\]\)'" contains=zeruEscape
 syntax match zeruEscape /\\x\x\x\|\\./ contained
+syntax match zeruFormat /{{\|}}\|{\(:[^{}"]*\)\?}/ contained
 
 syntax match zeruNumber "\<\d[0-9_]*\>"
 syntax match zeruNumber "\<0x[0-9a-fA-F_]\+\>"
@@ -46,6 +47,7 @@ highlight default link zeruString String
 highlight default link zeruRawString String
 highlight default link zeruChar Character
 highlight default link zeruEscape Special
+highlight default link zeruFormat Special
 highlight default link zeruNumber Number
 highlight default link zeruFloat Float
 highlight default link zeruOperator Operator

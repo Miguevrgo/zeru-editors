@@ -49,6 +49,10 @@
                         {
                             "name": "constant.character.escape.zeru",
                             "match": "\\\\."
+                        },
+                        {
+                            "name": "constant.other.placeholder.zeru",
+                            "match": "\\{\\{|\\}\\}|\\{(:[^{}\"]*)?\\}"
                         }
                     ]
                 },

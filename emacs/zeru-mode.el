@@ -12,6 +12,13 @@
     table)
   "Syntax table for `zeru-mode'.")
 
+(defun zeru-format-matcher (limit)
+  "Find the next `{}', `{:spec}', `{{' or `}}' inside a string before LIMIT."
+  (let (found)
+    (while (and (not found) (re-search-forward "{{\\|}}\\|{\\(:[^{}\"]*\\)?}" limit t))
+      (setq found (eq (nth 3 (syntax-ppss (match-beginning 0))) ?\")))
+    found))
+
 (defconst zeru-font-lock-keywords
   (let ((keywords '("fn" "var" "const" "pub" "if" "else" "import" "while" "return" "for" "in"
                     "break" "continue" "as" "struct" "enum" "trait" "match" "default" "asm"
@@ -24,7 +31,8 @@
       (,(regexp-opt types 'symbols) . font-lock-type-face)
       ("\\_<[A-Z][a-z][A-Za-z0-9_]*\\_>" . font-lock-type-face)
       (,(regexp-opt constants 'symbols) . font-lock-constant-face)
-      ("\\_<[0-9][0-9a-fA-FxXbBoO_]*\\(\\.[0-9][0-9_]*\\)?\\([eE][+-]?[0-9]+\\)?\\_>" . font-lock-constant-face)))
+      ("\\_<[0-9][0-9a-fA-FxXbBoO_]*\\(\\.[0-9][0-9_]*\\)?\\([eE][+-]?[0-9]+\\)?\\_>" . font-lock-constant-face)
+      (zeru-format-matcher 0 font-lock-builtin-face t)))
   "Font lock keywords for `zeru-mode'.")
 
 (defun zeru-indent-line ()
