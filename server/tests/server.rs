@@ -405,12 +405,12 @@ fn answers_and_checks_without_blocking() {
         checked["message"]
             .as_str()
             .unwrap()
-            .contains("Annotated as bool"),
+            .contains("is declared as bool"),
         "{checked}"
     );
     assert_eq!(
         checked["range"]["start"],
-        json!({ "line": 18, "character": 4 })
+        json!({ "line": 18, "character": 18 })
     );
 
     std::fs::write(server.dir.join("main.zr"), MAIN).unwrap();
@@ -425,7 +425,7 @@ fn answers_and_checks_without_blocking() {
         imported[0]["message"]
             .as_str()
             .unwrap()
-            .contains("expects i32"),
+            .contains("returns i32"),
         "{imported:?}"
     );
 
