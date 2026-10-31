@@ -28,6 +28,12 @@ pub fn completion(
     if head.ends_with(':') && !head.ends_with("::") {
         return Vec::new();
     }
+    if head.ends_with('#') {
+        let mut item = entry("#test", CompletionItemKind::KEYWORD, 1);
+        item.insert_text = Some("test".to_string());
+        item.filter_text = Some("test".to_string());
+        return vec![item];
+    }
     let line = &head[head.rfind('\n').map_or(0, |at| at + 1)..];
     let types = &program.files[file].module.types;
     let in_type = types.iter().any(|ty| ty.start <= start && start <= ty.end);
@@ -236,15 +242,26 @@ fn items_of(
 /// code in `file` may call: a method of another module only when public,
 /// and never `drop`, which runs by itself.
 fn members(program: &Program, file: usize, ty: Ty) -> Vec<CompletionItem> {
-    let (f, owner, on_value) = match ty {
-        Ty::Static(f, owner) => (f, owner, false),
+    let (f, owner, on_value, shared) = match ty {
+        Ty::Static(f, owner) => (f, owner, false, false),
         Ty::Value(f, ty) => match program.struct_of(f, &ty) {
-            Some((f, owner)) => (f, owner, true),
+            Some((f, owner)) => {
+                let written = ty.trim_start_matches(|c: char| c == '(' || c.is_whitespace());
+                (
+                    f,
+                    owner,
+                    true,
+                    written.starts_with('&') && !written.starts_with("&var "),
+                )
+            }
             None => return parts(&ty),
         },
     };
-    let callable =
-        |member: &Item| (member.is_pub || f == file || f == BUILTINS) && member.name != "drop";
+    let callable = |member: &Item| {
+        (member.is_pub || f == file || f == BUILTINS)
+            && member.name != "drop"
+            && !(shared && member.decl.contains("(var self"))
+    };
     items_of(program, f, Some(owner), 1, |member| match on_value {
         true => member.kind == ItemKind::Field || member.has_self && callable(member),
         false => member.kind == ItemKind::Method && !member.has_self && callable(member),
@@ -545,6 +562,7 @@ fn main() {
             found.sort_by(|a, b| a.sort_text.cmp(&b.sort_text));
             found.into_iter().map(|item| item.label).collect::<Vec<_>>()
         };
+        assert_eq!(labels("fn main() {}\n#te", 15), ["#test"]);
         let modules = labels("import std.\n", 11);
         assert!(modules.contains(&"fs".into()) && modules.contains(&"collections".into()));
         assert!(!modules.contains(&"builtin".into()));

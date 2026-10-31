@@ -37,8 +37,8 @@ pub enum Ty {
 
 /// The file of the program that declares what the compiler builds in: `Vec`,
 /// `String`, the methods of `str`, slices, integers, `T?` and `T!` as `Str`,
-/// `Slice<T>`, `Int<T>`, `Optional<T>` and `Result<T>`, the print functions,
-/// `assert` and `replace`.
+/// `Slice<T>`, `Int<T>`, `Optional<T, U>` (`U` is `T` read through a
+/// reference) and `Result<T>`, the print functions, `assert` and `replace`.
 pub const BUILTINS: usize = 0;
 
 const INTEGERS: [&str; 10] = [
@@ -49,7 +49,7 @@ const INTEGERS: [&str; 10] = [
 fn builtin(ty: &str) -> Option<(&'static str, Vec<&str>)> {
     let ty = strip(ty);
     if let Some(inner) = ty.strip_suffix('?') {
-        return Some(("Optional", vec![inner]));
+        return Some(("Optional", vec![inner, strip(inner)]));
     }
     if let Some(inner) = ty.strip_suffix('!') {
         return Some(("Result", vec![inner]));
@@ -745,6 +745,7 @@ fn main() {
     for k, item in points { }
     var m: Map<i64, Point> = make();
     var f = m.get(1);
+    var g = m.get(1).copy();
     var s = Shape::Rect(1.0, 2.0);
     match s { Shape::Rect(w, h) => {} default => {} }
     match find(&var points) { Some(q) => {} None => {} }
@@ -769,6 +770,10 @@ fn main() {
     u.len();
     u.x;
     a.x;
+    var sl = points[..1];
+    sl.len();
+    var front = &var points[..1];
+    front.sort();
 }
 ";
 
@@ -794,6 +799,7 @@ fn main() {
             ("k", "k: usize"),
             ("item", "item: Point"),
             ("f", "var f: (&Point)?"),
+            ("g", "var g: Point?"),
             ("h", "h: f64"),
             ("q", "q: Point"),
             ("v", "v: i32"),
@@ -828,6 +834,8 @@ fn main() {
             found.into_iter().map(|item| item.label).collect::<Vec<_>>()
         };
         assert_eq!(labels("a.x"), ["x", "len"]);
+        assert!(!labels("l.len").contains(&"sort".to_string()));
+        assert!(labels("t.sort").contains(&"sort".to_string()));
         assert!(labels("u.x").is_empty());
     }
 }

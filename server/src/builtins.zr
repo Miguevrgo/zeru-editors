@@ -830,7 +830,7 @@ struct Str {
 //     println("{}", first_even(Vec[1]).is_none()); // true
 // }
 // ```
-struct Optional<T> {
+struct Optional<T, U> {
     // Returns whether it holds a value.
     fn is_some(self) bool {}
 
@@ -843,6 +843,10 @@ struct Optional<T> {
     //
     // When it is None.
     fn unwrap(self) T {}
+
+    // Returns a copy of the value it holds, read through the reference when
+    // it holds one.
+    fn copy(self) U? {}
 }
 
 // `T!`: a value of type `T`, or an `i32` error code.
