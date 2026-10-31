@@ -428,4 +428,37 @@ fn answers_and_checks_without_blocking() {
             .contains("expects i32"),
         "{imported:?}"
     );
+
+    let typo = MAIN.replace("println(\"{}\", q.x);", "println(\"{}\", qq.x);");
+    std::fs::write(server.dir.join("util.zr"), UTIL).unwrap();
+    std::fs::write(server.dir.join("main.zr"), &typo).unwrap();
+    server.change(&typo);
+    server.notify(
+        "textDocument/didSave",
+        json!({ "textDocument": { "uri": server.uri("main.zr") } }),
+    );
+    let found = loop {
+        let found = server.diagnostics("main.zr");
+        if !found.is_empty() {
+            break found;
+        }
+    };
+    assert!(
+        found[0]["message"]
+            .as_str()
+            .unwrap()
+            .contains("did you mean 'q'?"),
+        "{found:?}"
+    );
+    let actions = server.request(
+        "textDocument/codeAction",
+        json!({
+            "textDocument": { "uri": server.uri("main.zr") },
+            "range": found[0]["range"],
+            "context": { "diagnostics": found },
+        }),
+    );
+    let edits = &actions[0]["edit"]["changes"][server.uri("main.zr")];
+    assert_eq!(edits[0]["newText"], "q", "{actions}");
+    assert_eq!(edits[0]["range"], found[0]["range"]);
 }

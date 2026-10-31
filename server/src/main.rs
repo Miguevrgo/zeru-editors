@@ -23,19 +23,20 @@ use lsp_types::notification::{
     Notification as _, PublishDiagnostics,
 };
 use lsp_types::request::{
-    Completion, DocumentSymbolRequest, Formatting, GotoDefinition, HoverRequest, InlayHintRequest,
-    References, Rename, Request as _, SemanticTokensFullRequest, SignatureHelpRequest,
+    CodeActionRequest, Completion, DocumentSymbolRequest, Formatting, GotoDefinition, HoverRequest,
+    InlayHintRequest, References, Rename, Request as _, SemanticTokensFullRequest,
+    SignatureHelpRequest,
 };
 use lsp_types::{
-    CompletionList, CompletionOptions, CompletionResponse, Diagnostic,
-    DiagnosticRelatedInformation, DiagnosticSeverity, DocumentSymbol, DocumentSymbolResponse,
-    GotoDefinitionResponse, Hover, HoverContents, HoverProviderCapability, InlayHint,
-    InlayHintKind, InlayHintLabel, Location, MarkupContent, MarkupKind, OneOf, Position,
-    PublishDiagnosticsParams, Range, SemanticTokens, SemanticTokensFullOptions,
-    SemanticTokensLegend, SemanticTokensOptions, SemanticTokensResult, ServerCapabilities,
-    SignatureHelpOptions, SymbolKind, TextDocumentPositionParams, TextDocumentSyncCapability,
-    TextDocumentSyncKind, TextDocumentSyncOptions, TextDocumentSyncSaveOptions, TextEdit, Uri,
-    WorkspaceEdit,
+    CodeAction, CodeActionKind, CodeActionOrCommand, CodeActionProviderCapability, CompletionList,
+    CompletionOptions, CompletionResponse, Diagnostic, DiagnosticRelatedInformation,
+    DiagnosticSeverity, DocumentSymbol, DocumentSymbolResponse, GotoDefinitionResponse, Hover,
+    HoverContents, HoverProviderCapability, InlayHint, InlayHintKind, InlayHintLabel, Location,
+    MarkupContent, MarkupKind, OneOf, Position, PublishDiagnosticsParams, Range, SemanticTokens,
+    SemanticTokensFullOptions, SemanticTokensLegend, SemanticTokensOptions, SemanticTokensResult,
+    ServerCapabilities, SignatureHelpOptions, SymbolKind, TextDocumentPositionParams,
+    TextDocumentSyncCapability, TextDocumentSyncKind, TextDocumentSyncOptions,
+    TextDocumentSyncSaveOptions, TextEdit, Uri, WorkspaceEdit,
 };
 use serde_json::{Value, json};
 
@@ -147,6 +148,7 @@ fn capabilities() -> ServerCapabilities {
         document_symbol_provider: Some(OneOf::Left(true)),
         inlay_hint_provider: Some(OneOf::Left(true)),
         document_formatting_provider: Some(OneOf::Left(true)),
+        code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
         completion_provider: Some(CompletionOptions {
             trigger_characters: Some(vec![".".into(), ":".into()]),
             ..Default::default()
@@ -212,6 +214,10 @@ impl Server {
                 let formatted = check::format(self.zeru.as_deref()?, text)?;
                 let whole = Lines::new(text).range(Span::new(0, text.len()));
                 Some(vec![TextEdit::new(whole, formatted)])
+            }),
+            CodeActionRequest::METHOD => answer::<CodeActionRequest>(request, |p| {
+                let fixes = p.context.diagnostics.into_iter().filter_map(fix_of);
+                Some(fixes.map(CodeActionOrCommand::CodeAction).collect())
             }),
             InlayHintRequest::METHOD => answer::<InlayHintRequest>(request, |p| {
                 let (program, file) = self.program(&p.text_document.uri)?;
@@ -482,8 +488,18 @@ impl Server {
                         message: note["message"].as_str()?.to_string(),
                     })
                 });
-                let mut diagnostic = error(range, found["message"].as_str()?.to_string());
+                let mut message = found["message"].as_str()?.to_string();
+                if let Some(help) = found["help"].as_str() {
+                    message = format!("{message}\nhelp: {help}");
+                }
+                let mut diagnostic = error(range, message);
                 diagnostic.related_information = Some(related.collect());
+                if let Some((path, range)) = Self::place(dir, &found["fix"]) {
+                    let edit = TextEdit::new(range, found["fix"]["text"].as_str()?.to_string());
+                    let title = found["help"].as_str().unwrap_or("Fix it");
+                    diagnostic.data =
+                        Some(json!({ "title": title, "uri": uri_of(&path), "edit": edit }));
+                }
                 if found["severity"] == "warning" {
                     diagnostic.severity = Some(DiagnosticSeverity::WARNING);
                 }
@@ -553,6 +569,21 @@ impl Server {
         let notification = Notification::new(PublishDiagnostics::METHOD.to_string(), params);
         self.send(Message::Notification(notification));
     }
+}
+
+/// The edit the compiler suggested for `diagnostic`, as a quick fix.
+fn fix_of(diagnostic: Diagnostic) -> Option<CodeAction> {
+    let data = diagnostic.data.clone()?;
+    let uri: Uri = serde_json::from_value(data["uri"].clone()).ok()?;
+    let edit: TextEdit = serde_json::from_value(data["edit"].clone()).ok()?;
+    Some(CodeAction {
+        title: data["title"].as_str()?.to_string(),
+        kind: Some(CodeActionKind::QUICKFIX),
+        diagnostics: Some(vec![diagnostic]),
+        edit: Some(WorkspaceEdit::new(HashMap::from([(uri, vec![edit])]))),
+        is_preferred: Some(true),
+        ..Default::default()
+    })
 }
 
 fn error(range: Range, message: String) -> Diagnostic {
