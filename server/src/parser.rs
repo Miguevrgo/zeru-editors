@@ -1638,6 +1638,15 @@ impl Parser<'_> {
     /// `E::V(p, q)` or `Some(p)`, a name bound inside a payload, or else a
     /// constant expression stopping before `|`.
     fn alternative(&mut self, subject: &Chain, slot: Option<(usize, usize)>) -> Option<()> {
+        if self.at("(") && self.tuple_ahead() {
+            self.bump();
+            let mut index = 0;
+            return self.list(")", |p| {
+                p.tuple_part(subject, index)?;
+                index += 1;
+                Some(())
+            });
+        }
         if !self.at_ident() {
             return self.value_pattern();
         }
@@ -1683,6 +1692,47 @@ impl Parser<'_> {
             return Some(());
         }
         self.value_pattern()
+    }
+
+    /// Part `index` of a tuple pattern matched against `subject`: a name
+    /// bound to that part, or alternatives of any other pattern.
+    fn tuple_part(&mut self, subject: &Chain, index: usize) -> Option<()> {
+        loop {
+            if self.at_ident() && [",", ")", "|"].contains(&self.nth(1)) {
+                let span = self.span();
+                self.bump();
+                if self.name(span) != "_" {
+                    let hint = Hint::Part(Box::new(Hint::Value(subject.clone())), index);
+                    self.declare(span, LocalKind::Binding, self.name(span), Some(hint));
+                }
+            } else {
+                self.nested(|p| p.alternative(&Chain::default(), None))?;
+            }
+            if !self.eat("|") {
+                return Some(());
+            }
+        }
+    }
+
+    /// Whether the parentheses that open here hold a comma of their own,
+    /// making a tuple rather than a grouped value.
+    fn tuple_ahead(&self) -> bool {
+        let mut depth = 0;
+        for ahead in 0.. {
+            if self.pos + ahead >= self.tokens.len() {
+                return false;
+            }
+            match self.nth(ahead) {
+                "(" | "[" | "{" => depth += 1,
+                ")" | "]" | "}" => depth -= 1,
+                "," if depth == 1 => return true,
+                _ => {}
+            }
+            if depth == 0 {
+                return false;
+            }
+        }
+        false
     }
 
     /// A value, or the values from one to another written `low..=high`.
@@ -1766,6 +1816,13 @@ fn kind(c: u8, n: i32) str {
         default => \"other\",
     };
 }
+fn pair(a: i32?, b: bool) i32 {
+    return match (a, b) {
+        (Some(v), true) | (Some(v), false) => v,
+        (None, flag) => 0,
+        ((1), _) => 1,
+    };
+}
 ";
         let module = parse(source);
         assert!(module.errors.is_empty(), "{:?}", module.errors);
@@ -1775,6 +1832,9 @@ fn kind(c: u8, n: i32) str {
                 .iter()
                 .any(|l| l.name == "x" && l.kind == LocalKind::Binding)
         );
+        for name in ["v", "flag"] {
+            assert!(module.locals.iter().any(|l| l.name == name), "{name}");
+        }
     }
 
     #[test]
