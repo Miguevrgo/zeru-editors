@@ -744,6 +744,15 @@ struct Str {
     // Returns the length in bytes.
     fn len(self) usize {}
 
+    // Returns whether the text has no bytes.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // println("{} {}", "".is_empty(), " ".is_empty()); // true false
+    // ```
+    fn is_empty(self) bool {}
+
     // Returns the parts of the text between each `sep`, or with no `sep`
     // the words between spaces, tabs and line breaks.
     //
