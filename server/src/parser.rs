@@ -1605,6 +1605,12 @@ impl Parser<'_> {
                     p.expression()?;
                 }
                 p.expect("=>")?;
+                for keyword in ["return", "break", "continue"] {
+                    if p.at(keyword) {
+                        return p
+                            .error_here(format!("A {keyword} in a match arm goes inside a block"));
+                    }
+                }
                 let block = p.at("{");
                 match block {
                     true => p.block()?,
@@ -1933,6 +1939,15 @@ fn main() {
             .iter()
             .filter(|u| matches!(u.kind, UseKind::Path { .. }));
         assert_eq!(texts(paths), ["Circle", "Circle"]);
+    }
+
+    #[test]
+    fn return_as_an_arm_says_to_use_a_block() {
+        let module = parse(
+            "fn f(o: i64?) i64 {\n    match o {\n        Some(x) => return x,\n        None => {}\n    }\n    return 0;\n}\n",
+        );
+        let messages: Vec<&str> = module.errors.iter().map(|(_, m)| m.as_str()).collect();
+        assert_eq!(messages, ["A return in a match arm goes inside a block"]);
     }
 
     #[test]
