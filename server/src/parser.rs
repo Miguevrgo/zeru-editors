@@ -914,6 +914,9 @@ impl Parser<'_> {
                 for &(local, _) in &names {
                     self.module.locals[local].from = usize::MAX;
                 }
+                if self.at(":") {
+                    return self.error_here("A type goes after each name it is for");
+                }
                 self.expect("=")?;
                 let value = self.expression()?;
                 self.hint_parts(&names, false, |_| Hint::Value(value.clone()));
