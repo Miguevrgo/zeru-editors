@@ -449,6 +449,9 @@ struct Slice<T> {
     // Returns the number of elements.
     fn len(self) usize {}
 
+    // Returns whether there are no elements.
+    fn is_empty(self) bool {}
+
     // Returns whether an element equals `value`.
     //
     // # Examples
