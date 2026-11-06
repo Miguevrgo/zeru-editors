@@ -28,8 +28,8 @@ struct Point {
 
 // A comment.
 fn main() {
-    var p = Point { x: 1, y: 2 };
-    var q = Point.origin();
+    const p = Point { x: 1, y: 2 };
+    const q = Point.origin();
     var v: Vec<i32> = Vec.new();
     v.push(util::twice(p.sum()));
     println(\"{}\", q.x);
@@ -200,7 +200,7 @@ fn answers_and_checks_without_blocking() {
     assert_eq!(server.diagnostics("main.zr"), Vec::<Value>::new());
     assert_eq!(server.diagnostics("main.zr"), Vec::<Value>::new());
 
-    assert!(shown(&server.at("textDocument/hover", 20, 23)).contains("var p: Point"));
+    assert!(shown(&server.at("textDocument/hover", 20, 23)).contains("const p: Point"));
     assert!(shown(&server.at("textDocument/hover", 20, 26)).contains("Point\nfn sum(self) i32"));
     assert_eq!(
         shown(&server.at("textDocument/hover", 20, 17)),
@@ -233,8 +233,8 @@ fn answers_and_checks_without_blocking() {
         [
             (20, 23, "n:"),
             (20, 11, "value:"),
-            (17, 9, ": Point"),
-            (18, 9, ": Point")
+            (17, 11, ": Point"),
+            (18, 11, ": Point")
         ]
     );
 
@@ -259,7 +259,7 @@ fn answers_and_checks_without_blocking() {
     let half_path = server.at("textDocument/completion", 20, 16);
     assert_eq!(half_path, json!({ "isIncomplete": true, "items": [] }));
     assert!(labels(&server.at("textDocument/completion", 20, 17)).contains(&"twice"));
-    let functions = server.at("textDocument/completion", 18, 18);
+    let functions = server.at("textDocument/completion", 18, 20);
     assert_eq!(labels(&functions), ["origin"]);
     assert!(labels(&server.at("textDocument/completion", 20, 6)).contains(&"push"));
     let names = server.at("textDocument/completion", 21, 4);
@@ -283,7 +283,7 @@ fn answers_and_checks_without_blocking() {
             .len(),
         5
     );
-    let renamed = server.at("textDocument/rename", 17, 8);
+    let renamed = server.at("textDocument/rename", 17, 10);
     assert_eq!(
         renamed["changes"][server.uri("main.zr")]
             .as_array()
@@ -342,9 +342,9 @@ fn answers_and_checks_without_blocking() {
         ((6, 7), "method"),
         ((7, 15), "parameter"),
         ((15, 0), "comment"),
-        ((17, 8), "variable"),
-        ((17, 23), "number"),
-        ((18, 18), "method"),
+        ((17, 10), "variable"),
+        ((17, 25), "number"),
+        ((18, 20), "method"),
         ((20, 11), "namespace"),
         ((20, 17), "function"),
         ((21, 4), "macro"),
@@ -355,8 +355,8 @@ fn answers_and_checks_without_blocking() {
     }
 
     let typed = MAIN.replace(
-        "    var p = Point",
-        "    var q2 = Point.origin();\n    q2.\n    var p = Point",
+        "    const p = Point",
+        "    const q2 = Point.origin();\n    q2.\n    const p = Point",
     );
     server.change(&typed);
     let live = server.diagnostics("main.zr");
@@ -366,7 +366,7 @@ fn answers_and_checks_without_blocking() {
         ["x", "y", "sum"]
     );
 
-    let broken = MAIN.replace("var q = Point.origin();", "var q: bool = 1;");
+    let broken = MAIN.replace("const q = Point.origin();", "const q: bool = 1;");
     std::fs::write(server.dir.join("main.zr"), &broken).unwrap();
     server.change(&broken);
     assert_eq!(server.diagnostics("main.zr"), Vec::<Value>::new());
@@ -410,7 +410,7 @@ fn answers_and_checks_without_blocking() {
     );
     assert_eq!(
         checked["range"]["start"],
-        json!({ "line": 18, "character": 18 })
+        json!({ "line": 18, "character": 20 })
     );
 
     std::fs::write(server.dir.join("main.zr"), MAIN).unwrap();

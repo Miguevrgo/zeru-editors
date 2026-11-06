@@ -25,7 +25,7 @@ pub struct Vec<T> {
     // # Examples
     //
     // ```zeru
-    // var names: Vec<str> = Vec.new();
+    // const names: Vec<str> = Vec.new();
     // println("{}", names.len()); // 0
     // ```
     fn new() Vec<T> {}
@@ -51,7 +51,7 @@ pub struct Vec<T> {
     // # Examples
     //
     // ```zeru
-    // var v: Vec<str> = Vec["a", "b"];
+    // const v: Vec<str> = Vec["a", "b"];
     // println("{}", v.len()); // 2
     // ```
     fn len(self) usize {}
@@ -151,7 +151,7 @@ pub struct Vec<T> {
     // # Examples
     //
     // ```zeru
-    // var v: Vec<i32> = Vec[7, 8];
+    // const v: Vec<i32> = Vec[7, 8];
     // println("{}", *v.get(1).unwrap()); // 8
     // println("{}", v.get(2).is_none()); // true
     // ```
@@ -200,7 +200,7 @@ pub struct Vec<T> {
     // # Examples
     //
     // ```zeru
-    // var a: Vec<i32> = Vec[1, 2];
+    // const a: Vec<i32> = Vec[1, 2];
     // var b = a.copy();
     // b.push(3);
     // println("{} {}", a.len(), b.len()); // 2 3
@@ -318,7 +318,7 @@ pub struct Vec<T> {
     // # Examples
     //
     // ```zeru
-    // var v: Vec<i32> = Vec[1, 2, 3, 4, 5];
+    // const v: Vec<i32> = Vec[1, 2, 3, 4, 5];
     // println("{}", v.chunks(2)); // [[1, 2], [3, 4], [5]]
     // for group in v.chunks(3) {
     //     print("{} ", group.len());
@@ -338,7 +338,7 @@ pub struct Vec<T> {
     // # Examples
     //
     // ```zeru
-    // var v: Vec<i32> = Vec[1, 2, 3, 4];
+    // const v: Vec<i32> = Vec[1, 2, 3, 4];
     // println("{}", v.windows(2)); // [[1, 2], [2, 3], [3, 4]]
     // var rising = 0;
     // for pair in v.windows(2) {
@@ -357,7 +357,7 @@ pub struct Vec<T> {
     // # Examples
     //
     // ```zeru
-    // var primes: Vec<i32> = Vec[2, 3, 5, 7];
+    // const primes: Vec<i32> = Vec[2, 3, 5, 7];
     // println("{} {}", primes.contains(5), primes.contains(4)); // true false
     // ```
     fn contains(self, value: T) bool {}
@@ -373,7 +373,7 @@ pub struct Vec<T> {
     // # Examples
     //
     // ```zeru
-    // var prices: Vec<f64> = Vec[1.5, 2.25];
+    // const prices: Vec<f64> = Vec[1.5, 2.25];
     // println("{}", prices.sum()); // 3.75
     // ```
     fn sum(self) T {}
@@ -385,7 +385,7 @@ pub struct Vec<T> {
     // # Examples
     //
     // ```zeru
-    // var v: Vec<i32> = Vec[4, -2, 9];
+    // const v: Vec<i32> = Vec[4, -2, 9];
     // println("{}", v.min().unwrap()); // -2
     // ```
     fn min(self) T? {}
@@ -397,7 +397,7 @@ pub struct Vec<T> {
     // # Examples
     //
     // ```zeru
-    // var v: Vec<i32> = Vec[4, -2, 9];
+    // const v: Vec<i32> = Vec[4, -2, 9];
     // println("{}", v.max().unwrap()); // 9
     // ```
     fn max(self) T? {}
@@ -407,7 +407,7 @@ pub struct Vec<T> {
     // # Examples
     //
     // ```zeru
-    // var v: Vec<i32> = Vec[1, 2, 3];
+    // const v: Vec<i32> = Vec[1, 2, 3];
     // println("{}", v.map(fn(x) x * 10)); // [10, 20, 30]
     // ```
     fn map<U>(self, f: fn(T) U) Vec<U> {}
@@ -417,7 +417,7 @@ pub struct Vec<T> {
     // # Examples
     //
     // ```zeru
-    // var v: Vec<i32> = Vec[1, 2, 3, 4];
+    // const v: Vec<i32> = Vec[1, 2, 3, 4];
     // println("{}", v.filter(fn(x) x % 2 == 0)); // [2, 4]
     // ```
     fn filter(self, keep: fn(T) bool) Vec<T> {}
@@ -439,9 +439,9 @@ pub struct Vec<T> {
 //
 // ```zeru
 // var v: Vec<i32> = Vec[4, 8, 15, 16];
-// var middle = v[1..3];
+// const middle = v[1..3];
 // println("{} {}", middle, middle.sum()); // [8, 15] 23
-// var front = &var v[..3];
+// const front = &var v[..3];
 // front.reverse();
 // println("{}", v); // [15, 8, 4, 16]
 // ```
@@ -457,7 +457,7 @@ struct Slice<T> {
     // # Examples
     //
     // ```zeru
-    // var v: Vec<i32> = Vec[1, 2, 3];
+    // const v: Vec<i32> = Vec[1, 2, 3];
     // println("{}", v[1..].contains(1)); // false
     // ```
     fn contains(self, value: T) bool {}
@@ -467,7 +467,7 @@ struct Slice<T> {
     // # Examples
     //
     // ```zeru
-    // var v: Vec<i32> = Vec[1, 2, 3];
+    // const v: Vec<i32> = Vec[1, 2, 3];
     // println("{}", v[1..].sum()); // 5
     // ```
     fn sum(self) T {}
@@ -477,7 +477,7 @@ struct Slice<T> {
     // # Examples
     //
     // ```zeru
-    // var v: Vec<i32> = Vec[3, 1, 2];
+    // const v: Vec<i32> = Vec[3, 1, 2];
     // println("{}", v[..1].min().unwrap()); // 3
     // ```
     fn min(self) T? {}
@@ -487,7 +487,7 @@ struct Slice<T> {
     // # Examples
     //
     // ```zeru
-    // var v: Vec<i32> = Vec[3, 1, 2];
+    // const v: Vec<i32> = Vec[3, 1, 2];
     // println("{}", v[1..].max().unwrap()); // 2
     // ```
     fn max(self) T? {}
@@ -501,7 +501,7 @@ struct Slice<T> {
     // # Examples
     //
     // ```zeru
-    // var v: Vec<i32> = Vec[1, 2, 3, 4];
+    // const v: Vec<i32> = Vec[1, 2, 3, 4];
     // println("{}", v[1..].windows(2)); // [[2, 3], [3, 4]]
     // ```
     fn windows(self, n: usize) Vec<&[T]> {}
@@ -515,7 +515,7 @@ struct Slice<T> {
     // # Examples
     //
     // ```zeru
-    // var v: Vec<i32> = Vec[1, 2, 3, 4, 5];
+    // const v: Vec<i32> = Vec[1, 2, 3, 4, 5];
     // println("{}", v[..].chunks(2)); // [[1, 2], [3, 4], [5]]
     // ```
     fn chunks(self, n: usize) Vec<&[T]> {}
@@ -559,7 +559,7 @@ struct Slice<T> {
 // # Examples
 //
 // ```zeru
-// var flags: u8 = 0b1011_0000;
+// const flags: u8 = 0b1011_0000;
 // println("{} {}", flags.count_ones(), flags.rotate_left(2)); // 3 194
 // ```
 struct Int<T> {
@@ -739,7 +739,7 @@ pub struct String {
 // # Examples
 //
 // ```zeru
-// var s = "zeru";
+// const s = "zeru";
 // println("{} {} {}", s.len(), s[0] == 'z', s == "zeru"); // 4 true true
 // println("{}", "é".len()); // 2
 // ```
@@ -767,7 +767,7 @@ struct Str {
     // # Examples
     //
     // ```zeru
-    // var parts = "a,b,,c".split(",");
+    // const parts = "a,b,,c".split(",");
     // println("{} {} {}", parts.len(), parts[1], parts[2].len()); // 4 b 0
     // println("{}", "  84283   63343\n".split()); // ["84283", "63343"]
     // ```
@@ -780,7 +780,7 @@ struct Str {
     // # Examples
     //
     // ```zeru
-    // var lines = "first\r\nsecond\n".lines();
+    // const lines = "first\r\nsecond\n".lines();
     // println("{} {}", lines.len(), lines[1]); // 2 second
     // ```
     fn lines(self) Vec<str> {}
@@ -827,7 +827,7 @@ struct Str {
     // # Examples
     //
     // ```zeru
-    // var line = "name: Zeru";
+    // const line = "name: Zeru";
     // println("{}", line[line.find(":").unwrap() + 2..]); // Zeru
     // ```
     fn find(self, t: str) usize? {}
@@ -1000,7 +1000,7 @@ struct Result<T> {
 // ```zeru
 // print("{} + {} = ", 2, 3);
 // println("{}", 5); // 2 + 3 = 5
-// var v: Vec<str> = Vec["a", "b"];
+// const v: Vec<str> = Vec["a", "b"];
 // println("{} {}", v, (1, true)); // ["a", "b"] (1, true)
 // println("[{:>5}] [{:.2}] [{:08b}] [{:*^5}]", 42, 3.14159, 5, "x"); // [   42] [3.14] [00000101] [**x**]
 // ```
@@ -1025,7 +1025,7 @@ pub fn println(format: str) {}
 //
 // ```zeru
 // var names: Vec<String> = Vec[String.from("ann")];
-// var taken = replace(&var names[0], String.from("bob"));
+// const taken = replace(&var names[0], String.from("bob"));
 // println("{} {}", taken, names); // ann ["bob"]
 // ```
 pub fn replace<T>(place: &var T, value: T) T {}
@@ -1036,7 +1036,7 @@ pub fn replace<T>(place: &var T, value: T) T {}
 // # Examples
 //
 // ```zeru
-// var message = format("{} of {} done", 3, 10);
+// const message = format("{} of {} done", 3, 10);
 // println("{}", message.len()); // 12
 // ```
 pub fn format(format: str) String {}
@@ -1056,7 +1056,7 @@ pub fn eprintln(format: str) {}
 // # Examples
 //
 // ```zeru
-// var v: Vec<i32> = Vec[1, 2];
+// const v: Vec<i32> = Vec[1, 2];
 // assert(v.len() == 2);
 // assert(v[0] < v[1], "{} comes first", v[0]);
 // println("sorted"); // sorted
