@@ -98,7 +98,8 @@ pub struct Vec<T> {
     // Adds a copy of each element of `other` at the end, growing once.
     //
     // `other` is a slice, so it can be all of a Vec or an array, or part of
-    // one. Elements that own memory are copied, as `copy()` does.
+    // one. Elements that own memory are copied, as `copy()` does. On a
+    // String it adds text, as `s.extend("abc")`.
     //
     // # Examples
     //
@@ -618,7 +619,7 @@ struct Int<T> {
 // Text that owns its bytes, grows, and frees them when it goes out of scope.
 //
 // A string literal is a `str`; a String is text made at runtime, as
-// `fs::read_file` gives or `push_str` builds. A String goes wherever a `str`
+// `fs::read_file` gives or `extend` builds. A String goes wherever a `str`
 // does, so every `str` method works on it, as do `s[i]`, `for b in s`, `==`
 // and printing. Like a `Vec`, assigning or passing it moves it.
 //
@@ -626,7 +627,7 @@ struct Int<T> {
 //
 // ```zeru
 // var name = String.from("ze");
-// name.push_str("ru");
+// name.extend("ru");
 // name[0] = 'Z';
 // println("{} {} {}", name, name.len(), name == "Zeru"); // Zeru 4 true
 // ```
@@ -645,16 +646,16 @@ pub struct String {
     // ```
     fn from(text: str) String {}
 
-    // Adds `text` at the end.
+    // Adds a copy of `other` at the end: text, or part of another String.
     //
     // # Examples
     //
     // ```zeru
     // var path = String.from("/home");
-    // path.push_str("/zeru");
+    // path.extend("/zeru");
     // println("{}", path); // /home/zeru
     // ```
-    fn push_str(var self, text: str) {}
+    fn extend(var self, other: str) {}
 
     // Adds one byte at the end, as `'a'`.
     fn push(var self, byte: u8) {}
