@@ -95,6 +95,22 @@ pub struct Vec<T> {
     // ```
     fn push(var self, value: T) {}
 
+    // Adds a copy of each element of `other` at the end, growing once.
+    //
+    // `other` is a slice, so it can be all of a Vec or an array, or part of
+    // one. Elements that own memory are copied, as `copy()` does.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // var v: Vec<i32> = Vec[1, 2];
+    // const more: Array<i32, 2> = [3, 4];
+    // v.extend(&more);
+    // v.extend(more[1..]);
+    // println("{}", v); // [1, 2, 3, 4, 4]
+    // ```
+    fn extend(var self, other: &[T]) {}
+
     // Removes the last element and returns it, or None when the Vec is empty.
     //
     // # Examples
@@ -427,6 +443,17 @@ pub struct Vec<T> {
 
     // Returns whether `f` accepts every element; true when there are none.
     fn all(self, f: fn(T) bool) bool {}
+
+    // Returns a String of the parts with `sep` between each two, for a
+    // `Vec<str>`.
+    //
+    // # Examples
+    //
+    // ```zeru
+    // const words: Vec<str> = Vec["red", "green", "blue"];
+    // println("{}", words.join(", ")); // red, green, blue
+    // ```
+    fn join(self, sep: str) String {}
 }
 
 // A view of some elements of an array or a Vec, as `v[1..3]` gives, of
@@ -531,6 +558,10 @@ struct Slice<T> {
 
     // Returns whether `f` accepts every element; true when there are none.
     fn all(self, f: fn(T) bool) bool {}
+
+    // Returns a String of the parts with `sep` between each two, for a
+    // `&[str]`.
+    fn join(self, sep: str) String {}
 
     // Sorts the elements of a `&var [T]` in ascending order.
     fn sort(var self) {}

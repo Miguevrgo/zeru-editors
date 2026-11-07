@@ -1126,7 +1126,7 @@ impl Parser<'_> {
     fn ty_inner(&mut self) -> Option<()> {
         self.nested(|p| {
             match p.peek() {
-                "str" => {
+                "str" | "!" => {
                     p.bump();
                 }
                 "*" => {
@@ -1849,6 +1849,7 @@ fn pair(a: i32?, b: bool) i32 {
     #[test]
     fn closures_and_fn_types() {
         let source = "fn apply(f: fn(i32) i32, g: fn(i32), x: i32) i32 { return f(x); }
+fn run(r: !, done: fn(i32) !, all: Vec<!>) ! { return r; }
 fn main() {
     var total = 0;
     var square = fn(x: i32) i32 {
