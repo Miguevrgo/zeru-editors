@@ -918,6 +918,23 @@ struct Str {
 
     // Returns whether `f` accepts every byte; true when there are none.
     fn all(self, f: fn(u8) bool) bool {}
+
+    // Returns the bytes added up, or 0 when there are none; a str is a
+    // &[u8], so the slice methods work on it too.
+    fn sum(self) u8 {}
+
+    // Returns the smallest byte, or None when there are none.
+    fn min(self) u8? {}
+
+    // Returns the largest byte, or None when there are none.
+    fn max(self) u8? {}
+
+    // Returns views of the bytes `n` at a time, the last one shorter when
+    // they do not divide evenly.
+    fn chunks(self, n: usize) Vec<str> {}
+
+    // Returns a view of every run of `n` bytes next to each other.
+    fn windows(self, n: usize) Vec<str> {}
 }
 
 // `T?`: a value of type `T`, or None.
