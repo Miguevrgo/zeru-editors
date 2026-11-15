@@ -8,9 +8,8 @@ pub const KEYWORDS: [&str; 26] = [
     "false", "asm", "volatile", "None",
 ];
 
-pub const PRIMITIVES: [&str; 14] = [
-    "i8", "i16", "i32", "i64", "isize", "u8", "u16", "u32", "u64", "usize", "f32", "f64", "bool",
-    "void",
+pub const PRIMITIVES: [&str; 13] = [
+    "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "usize", "f32", "f64", "bool", "void",
 ];
 
 /// The operators, longest first so the first match is the longest one.

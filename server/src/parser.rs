@@ -1484,10 +1484,10 @@ impl Parser<'_> {
             "[" => {
                 let mut op = Op::Index;
                 self.delimited(|p| {
-                    if !p.at("..") {
+                    if !p.at("..") && !p.at("..=") {
                         p.expression()?;
                     }
-                    if p.eat("..") {
+                    if p.eat("..") || p.eat("..=") {
                         op = Op::Slice;
                         if !p.at("]") {
                             p.expression()?;

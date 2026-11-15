@@ -41,8 +41,8 @@ pub enum Ty {
 /// reference) and `Result<T>`, the print functions, `assert` and `replace`.
 pub const BUILTINS: usize = 0;
 
-const INTEGERS: [&str; 10] = [
-    "i8", "i16", "i32", "i64", "isize", "u8", "u16", "u32", "u64", "usize",
+const INTEGERS: [&str; 9] = [
+    "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "usize",
 ];
 
 /// The built-in struct a written type is, and its type arguments.

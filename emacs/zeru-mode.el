@@ -23,7 +23,7 @@
   (let ((keywords '("fn" "var" "const" "pub" "if" "else" "import" "while" "return" "for" "in"
                     "break" "continue" "as" "struct" "enum" "trait" "match" "default" "asm"
                     "volatile"))
-        (types '("i8" "i16" "i32" "i64" "isize" "u8" "u16" "u32" "u64" "usize" "f32" "f64"
+        (types '("i8" "i16" "i32" "i64" "u8" "u16" "u32" "u64" "usize" "f32" "f64"
                  "bool" "void" "str"))
         (constants '("true" "false" "None" "Some" "Ok" "Err" "self")))
     `(("#test\\_>" . font-lock-preprocessor-face)

@@ -585,7 +585,7 @@ struct Slice<T> {
     fn rotate_right(var self, n: usize) {}
 }
 
-// An integer: i8, i16, i32, i64, isize, u8, u16, u32, u64 or usize. Its
+// An integer: i8, i16, i32, i64, u8, u16, u32, u64 or usize. Its
 // methods work on its bits.
 //
 // # Examples
@@ -759,6 +759,18 @@ pub struct String {
 
     // The number it spells, as `str.parse_float` reads it.
     fn parse_float(self) f64! {}
+
+    // A new Vec of what `f` returns for each byte, as `str.map` gives.
+    fn map<U>(self, f: fn(u8) U) Vec<U> {}
+
+    // The bytes `keep` accepts, as `str.filter` gives them.
+    fn filter(self, keep: fn(u8) bool) String {}
+
+    // Whether `f` accepts some byte.
+    fn any(self, f: fn(u8) bool) bool {}
+
+    // Whether `f` accepts every byte; true when there are none.
+    fn all(self, f: fn(u8) bool) bool {}
 }
 
 // Text, as a read-only slice of bytes.
