@@ -54,10 +54,18 @@ pub fn completion(
             UseKind::Member { object, dot } if *dot == start => Some(object),
             _ => None,
         });
-        object
-            .and_then(|object| program.type_of(file, object))
-            .map(|ty| members(program, file, ty))
-            .unwrap_or_default()
+        match object.and_then(|object| program.number_type(file, object, 0)) {
+            Some(number) => ["MAX", "MIN"]
+                .map(|name| CompletionItem {
+                    detail: Some(number.to_string()),
+                    ..entry(name, CompletionItemKind::CONSTANT, 1)
+                })
+                .into(),
+            None => object
+                .and_then(|object| program.type_of(file, object))
+                .map(|ty| members(program, file, ty))
+                .unwrap_or_default(),
+        }
     } else if in_type {
         let mut found = names(program, file, offset);
         found.retain(|item| match item.kind {
@@ -625,6 +633,30 @@ fn main() {
             edit(&complete(source, ": Ha"), "HashMap"),
             (0, 33, "HashMap".into())
         );
+    }
+
+    #[test]
+    fn closure_params_and_number_limits() {
+        let source = "fn main() {\n    const v = \"1\\n2\".lines().map(fn(line) line.);\n    const m = i32.;\n}\n";
+        let std = crate::check::find_std(crate::check::find_zeru(None).as_deref());
+        let root = PathBuf::from("/p/main.zr");
+        let read = |path: &Path| match path == root {
+            true => Some(source.to_string()),
+            false => std::fs::read_to_string(path).ok(),
+        };
+        let program = Program::load(std::slice::from_ref(&root), std.as_deref(), read);
+        let main = program.find(&root).unwrap();
+        let labels = |needle: &str| {
+            let found = completion(
+                &program,
+                main,
+                source.find(needle).unwrap() + needle.len(),
+                true,
+            );
+            found.into_iter().map(|item| item.label).collect::<Vec<_>>()
+        };
+        assert!(labels("line) line.").contains(&"parse".into()));
+        assert_eq!(labels("i32."), ["MAX", "MIN"]);
     }
 
     #[test]

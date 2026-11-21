@@ -754,11 +754,8 @@ pub struct String {
     // The byte where `t` first starts, as `str.find` gives it.
     fn find(self, t: str) usize? {}
 
-    // The integer it spells, as `str.parse_int` reads it.
-    fn parse_int(self) i64! {}
-
-    // The number it spells, as `str.parse_float` reads it.
-    fn parse_float(self) f64! {}
+    // The number it spells, as `str.parse` reads it.
+    fn parse<T>(self) T! {}
 
     // A new Vec of what `f` returns for each byte, as `str.map` gives.
     fn map<U>(self, f: fn(u8) U) Vec<U> {}
@@ -876,42 +873,31 @@ struct Str {
     // ```
     fn find(self, t: str) usize? {}
 
-    // Returns the integer the text spells, as `"42"`, `"-7"` or `"+3"`.
+    // Returns the number the text spells, as `"42"`, `"-7"`, `"3.5"` or
+    // `"1e-3"`, of the number type `T` the result goes to: the type of the
+    // variable, parameter or operand it meets, `i32` when nothing says.
+    // `parse<u8>()` names `T`.
     //
-    // The whole text must be digits after an optional sign, with no spaces;
-    // `trim` removes those first.
+    // The whole text must be the number, with no spaces; `trim` removes
+    // those first. A float is rounded to the nearest value, so a number
+    // printed and read back gives the same value.
     //
     // # Errors
     //
-    // 22 (EINVAL) when the text is not an integer, 34 (ERANGE) when it
-    // does not fit an `i64`.
+    // 22 (EINVAL) when the text is not a number of that type, 34 (ERANGE)
+    // when it does not fit it.
     //
     // # Examples
     //
     // ```zeru
-    // println("{}", "-42".parse_int().unwrap()); // -42
-    // println("{}", "4x".parse_int().unwrap_err()); // 22
-    // println("{}", "99999999999999999999".parse_int().unwrap_err()); // 34
+    // const width: u16 = "80".parse().unwrap();
+    // println("{}", width); // 80
+    // println("{}", "-42".parse().unwrap()); // -42
+    // println("{}", "3.25".parse<f64>().unwrap()); // 3.25
+    // println("{}", "4x".parse().unwrap_err()); // 22
+    // println("{}", "300".parse<u8>().unwrap_err()); // 34
     // ```
-    fn parse_int(self) i64! {}
-
-    // Returns the number the text spells, as `"3.5"`, `"-2"` or `"1e-3"`.
-    //
-    // Rounded to the nearest f64, so a number printed and read back gives
-    // the same value.
-    //
-    // # Errors
-    //
-    // 22 (EINVAL) when the text is not a number.
-    //
-    // # Examples
-    //
-    // ```zeru
-    // println("{}", "3.25".parse_float().unwrap()); // 3.25
-    // println("{}", "1e-3".parse_float().unwrap()); // 0.001
-    // println("{}", "pi".parse_float().unwrap_err()); // 22
-    // ```
-    fn parse_float(self) f64! {}
+    fn parse<T>(self) T! {}
 
     // Returns a new Vec of what `f` returns for each byte.
     fn map<U>(self, f: fn(u8) U) Vec<U> {}

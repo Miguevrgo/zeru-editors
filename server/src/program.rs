@@ -384,11 +384,18 @@ impl Program {
         let UseKind::Member { object, .. } = &uses[at].kind else {
             return None;
         };
-        let base = object.at.filter(|_| object.ops.is_empty())?;
-        let number = self.text(file, uses[base].span);
         let named = matches!(self.text(file, uses[at].span), "MAX" | "MIN");
+        named
+            .then(|| self.number_type(file, object, depth))
+            .flatten()
+    }
+
+    /// The number type `object` names, as `i32` in `i32.MAX`.
+    pub fn number_type(&self, file: usize, object: &Chain, depth: usize) -> Option<&str> {
+        let base = object.at.filter(|_| object.ops.is_empty())?;
+        let number = self.text(file, self.files[file].module.uses[base].span);
         let primitive = PRIMITIVES.contains(&number) && !matches!(number, "bool" | "void");
-        (named && primitive && self.resolve_in(file, base, depth + 1).is_none()).then_some(number)
+        (primitive && self.resolve_in(file, base, depth + 1).is_none()).then_some(number)
     }
 
     /// `ty` after indexing, unwrapping, taking references and dereferencing.

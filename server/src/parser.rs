@@ -172,6 +172,7 @@ pub fn parse(text: &str) -> Module {
         depth: 0,
         nesting: 0,
         imports_from: 0,
+        elements: None,
     };
     parser.report_illegal();
     parser.program();
@@ -179,6 +180,10 @@ pub fn parse(text: &str) -> Module {
 }
 
 const MAX_NESTING: usize = 256;
+
+/// The methods whose closure takes the receiver's elements, so an untyped
+/// parameter has their type.
+const CLOSURE_METHODS: [&str; 5] = ["map", "filter", "any", "all", "sort_by"];
 
 const ITEM_STARTS: [&str; 7] = ["fn", "struct", "enum", "trait", "const", "import", "pub"];
 
@@ -243,6 +248,7 @@ struct Parser<'a> {
     depth: usize,
     nesting: usize,
     imports_from: usize,
+    elements: Option<Chain>,
 }
 
 impl Parser<'_> {
@@ -1357,9 +1363,11 @@ impl Parser<'_> {
     }
 
     /// `fn(x: i32) i32 { body }` or `fn(x) x * 2`: its parameters are
-    /// locals of its own scope.
+    /// locals of its own scope, an element of the receiver when untyped in
+    /// a call to one of `CLOSURE_METHODS`.
     fn closure(&mut self) -> Option<Chain> {
         let start = self.span().start;
+        let elements = self.elements.take();
         self.bump();
         self.scoped(start, |p| {
             p.expect("(")?;
@@ -1367,12 +1375,12 @@ impl Parser<'_> {
                 let start = p.span().start;
                 p.eat("var");
                 let name = p.ident("parameter name")?;
-                let ty = match p.eat(":") {
-                    true => Some(p.ty()?),
-                    false => None,
+                let hint = match p.eat(":") {
+                    true => Some(Hint::Written(p.ty()?)),
+                    false => elements.clone().map(Hint::Element),
                 };
                 let decl = p.slice(start);
-                p.declare(name, LocalKind::Param, decl, ty.map(Hint::Written));
+                p.declare(name, LocalKind::Param, decl, hint);
                 Some(())
             })?;
             if !p.at("{") && p.returns_before_block() {
@@ -1500,13 +1508,23 @@ impl Parser<'_> {
                 Some(left)
             }
             "(" => {
+                let elements = left.at.filter(|_| left.ops.is_empty()).and_then(|at| {
+                    let used = &self.module.uses[at];
+                    let UseKind::Member { object, .. } = &used.kind else {
+                        return None;
+                    };
+                    let name = &self.text[used.span.start..used.span.end];
+                    CLOSURE_METHODS.contains(&name).then(|| object.clone())
+                });
                 let mut args = Vec::new();
                 self.delimited(|p| {
                     p.list(")", |p| {
                         args.push(p.span().start);
+                        p.elements = elements.clone();
                         p.expression().map(drop)
                     })
                 })?;
+                self.elements = None;
                 if let (Some(callee), true) = (left.at, left.ops.is_empty()) {
                     self.module.calls.push((callee, args));
                 }
